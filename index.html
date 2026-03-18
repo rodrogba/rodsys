@@ -15,22 +15,8 @@
         #app-container { flex: 1; position: relative; background: #000; height: 100%; width: 100%; }
         iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: white; }
         
-        .logo-container {
-            width: 220px;
-            height: 200px;
-            margin: 0 auto;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .vader-svg {
-            width: 100%;
-            height: 100%;
-            fill: white;
-            filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.5));
-        }
+        .logo-container { width: 220px; height: 200px; margin: 0 auto; position: relative; display: flex; align-items: center; justify-content: center; }
+        .vader-svg { width: 100%; height: 100%; fill: white; filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.5)); }
 
         @keyframes breathe {
             0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.4)); opacity: 0.95; }
@@ -43,142 +29,21 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 10px; }
         
         .imperial-glow { text-shadow: 0 0 15px rgba(239, 68, 68, 0.6); }
-
-        #gemini-chat {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 380px;
-            height: 550px;
-            z-index: 100;
-            display: none;
-            flex-direction: column;
-            border: 1px solid rgba(220, 38, 38, 0.3);
-            box-shadow: 0 0 40px rgba(0, 0, 0, 1);
-            border-radius: 1.5rem;
-            overflow: hidden;
-        }
-        .chat-msg { margin-bottom: 12px; padding: 12px; border-radius: 12px; font-size: 13px; max-width: 90%; line-height: 1.5; word-wrap: break-word; }
-        .msg-user { background: rgba(220, 38, 38, 0.25); align-self: flex-end; color: white; border-bottom-right-radius: 2px; }
-        .msg-ai { background: rgba(25, 25, 25, 0.9); align-self: flex-start; color: #eee; border-bottom-left-radius: 2px; border: 1px solid rgba(220, 38, 38, 0.1); }
-        
-        .typing-dot { animation: typing 1s infinite; }
-        @keyframes typing { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+        .terminal-glow { box-shadow: 0 0 20px rgba(220, 38, 38, 0.2); border: 1px solid rgba(220, 38, 38, 0.3); }
     </style>
 
     <script>
-        // Lógica de API Key Híbrida: Tenta localStorage primeiro (para uso no navegador), 
-        // caso contrário, mantém vazio para injeção automática do ambiente.
-        const getApiKey = () => localStorage.getItem('rodsys_holonet_key') || "";
-        
+        let G_API_KEY = localStorage.getItem('rodsys_gemini_key') || ""; 
         let currentUserData = null;
 
-        // --- GEMINI API INTEGRATION ---
-        async function callGemini(prompt) {
-            let retries = 0;
-            const maxRetries = 5;
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            const currentKey = getApiKey();
-
-            while (retries < maxRetries) {
-                try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${currentKey}`;
-                    
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            contents: [{ parts: [{ text: prompt }] }],
-                            systemInstruction: {
-                                parts: [{ text: "Você é o Assistente Imperial de Rodolfo, o Lorde Comandante do RodSys. Responda de forma curta, técnica e imponente em Português. Use sempre 'Sim, meu Lorde'. Você auxilia em Notas Fiscais, Propostas 4.0 e Laudos de Ar Condicionado." }]
-                            }
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        console.error("Erro na Holonet:", errorData);
-                        throw new Error(errorData.error?.message || 'Erro de rede');
-                    }
-                    
-                    const data = await response.json();
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Os arquivos estão inacessíveis, meu Lorde.";
-                } catch (err) {
-                    retries++;
-                    if (retries === maxRetries) break;
-                    await new Promise(r => setTimeout(r, delays[retries-1]));
-                }
-            }
-            return "Erro na Holonet Imperial. Conexão instável ou chave inválida. Verifique suas credenciais em Gestão de Oficiais.";
-        }
-
-        async function sendChatMessage() {
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if (!text) return;
-            
-            appendMessage('user', text);
-            input.value = '';
-            
-            const typingIndicator = appendMessage('ai', "Consultando arquivos imperiais...");
-            typingIndicator.classList.add('typing-dot');
-            
-            const response = await callGemini(text);
-            typingIndicator.classList.remove('typing-dot');
-            typingIndicator.innerText = response;
-        }
-
-        function appendMessage(role, text) {
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.className = `chat-msg ${role === 'user' ? 'msg-user' : 'msg-ai'}`;
-            div.innerText = text;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-            return div;
-        }
-
-        function toggleChat() {
-            const chat = document.getElementById('gemini-chat');
-            chat.style.display = chat.style.display === 'flex' ? 'none' : 'flex';
-        }
-
-        // --- GESTÃO DE MÓDULOS ---
-        function finalizarCarga() {
-            const indicator = document.getElementById('loading-indicator');
-            if (indicator) indicator.classList.add('hidden');
-        }
-
-        async function carregarModulo(url, element) {
-            const mainFrame = document.getElementById('main-frame');
-            const welcome = document.getElementById('welcome-overlay');
-            const title = document.getElementById('current-module-title');
-            const indicator = document.getElementById('loading-indicator');
-            
-            if (!mainFrame || !url) return;
-            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active-module'));
-            if (element) element.classList.add('active-module');
-            
-            if (title && element) title.innerText = element.querySelector('span').innerText;
-            if (indicator) indicator.classList.remove('hidden');
-            if (welcome) welcome.style.display = 'none';
-            mainFrame.src = encodeURI(url);
-        }
-
-        // --- LOGIN & USER MANAGEMENT ---
         function getUsuarios() {
-            try {
-                const users = localStorage.getItem('rodsys_users');
-                return users ? JSON.parse(users) : [
-                    { user: 'admin', pass: 'rodolfo123', nome: 'Rodolfo Master', role: 'admin' }
-                ];
-            } catch (e) { return [{ user: 'admin', pass: 'rodolfo123', nome: 'Rodolfo Master', role: 'admin' }]; }
+            const data = localStorage.getItem('rodsys_users');
+            return data ? JSON.parse(data) : [{ user: 'admin', pass: 'rodolfo123', nome: 'Rodolfo Master', role: 'admin' }];
         }
 
         function login() {
             const userIn = document.getElementById('username').value.trim();
             const passIn = document.getElementById('password').value.trim();
-            const errorMsg = document.getElementById('login-error');
             const usuarios = getUsuarios();
             const conta = usuarios.find(u => u.user === userIn && u.pass === passIn);
 
@@ -187,7 +52,7 @@
                 sessionStorage.setItem('rodsys_logged', JSON.stringify(conta));
                 renderDashboard();
             } else {
-                if (errorMsg) errorMsg.classList.remove('hidden');
+                document.getElementById('login-error').classList.remove('hidden');
             }
         }
 
@@ -198,17 +63,23 @@
             document.getElementById('user-role-label').innerText = currentUserData.role === 'admin' ? 'Lorde Comandante' : 'Oficial Imperial';
 
             if (currentUserData.role === 'admin') {
-                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
-                document.getElementById('holonet-key-input').value = localStorage.getItem('rodsys_holonet_key') || "";
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
             }
         }
 
-        function saveHolonetKey() {
-            const key = document.getElementById('holonet-key-input').value.trim();
-            localStorage.setItem('rodsys_holonet_key', key);
-            const status = document.getElementById('key-status');
-            status.innerText = "Chave Gravada nos Registros.";
-            setTimeout(() => status.innerText = "", 2000);
+        async function carregarModulo(url, element) {
+            const mainFrame = document.getElementById('main-frame');
+            const welcome = document.getElementById('welcome-overlay');
+            const title = document.getElementById('current-module-title');
+            const indicator = document.getElementById('loading-indicator');
+            
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active-module'));
+            if (element) element.classList.add('active-module');
+            
+            if (title && element) title.innerText = element.querySelector('span').innerText;
+            if (indicator) indicator.classList.remove('hidden');
+            if (welcome) welcome.style.display = 'none';
+            mainFrame.src = url;
         }
 
         function logout() {
@@ -216,170 +87,242 @@
             window.location.reload();
         }
 
-        function abrirGestaoUsuarios() {
+        // --- GEMINI INTEGRATION (VERSÃO ESTÁVEL) ---
+        async function enviarOrdemGemini() {
+            const input = document.getElementById('gemini-input');
+            const output = document.getElementById('gemini-output');
+            const prompt = input.value.trim();
+
+            if (!prompt) return;
+            if (!G_API_KEY) {
+                alert("Erro: A Chave da Holonet (API Key) não foi configurada na Gestão de Oficiais.");
+                return;
+            }
+
+            const userMsg = document.createElement('div');
+            userMsg.className = "text-white/50 text-[10px] mb-2 font-bold uppercase tracking-widest";
+            userMsg.innerText = `> ${prompt}`;
+            output.appendChild(userMsg);
+            
+            const loadingMsg = document.createElement('p');
+            loadingMsg.className = "text-red-500 animate-pulse mb-4";
+            loadingMsg.innerText = "SINCRONIZANDO COM O NÚCLEO...";
+            output.appendChild(loadingMsg);
+            
+            input.value = "";
+            output.scrollTop = output.scrollHeight;
+
+            try {
+                // Usando o modelo gemini-1.5-flash que é estável para produção e API Keys externas
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_API_KEY}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ 
+                            parts: [{ text: `System Instruction: Você é o núcleo de inteligência do RodSys, um portal de gestão com temática imperial (Star Wars). Ajude o administrador a ajustar o sistema. Responda de forma curta, técnica e trate o usuário como Lorde ou Comandante. User prompt: ${prompt}` }] 
+                        }]
+                    })
+                });
+
+                loadingMsg.remove();
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || "Erro na API");
+                }
+
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sem resposta do núcleo.";
+                
+                const responseDiv = document.createElement('div');
+                responseDiv.className = "text-slate-300 text-[11px] leading-relaxed whitespace-pre-wrap border-l-2 border-red-600 pl-4 mb-6";
+                responseDiv.innerText = text;
+                output.appendChild(responseDiv);
+                output.scrollTop = output.scrollHeight;
+
+            } catch (error) {
+                loadingMsg.remove();
+                const errorDiv = document.createElement('div');
+                errorDiv.className = "text-red-700 font-bold uppercase text-[10px] mb-4 bg-red-900/10 p-3 rounded-lg border border-red-900/30";
+                errorDiv.innerText = `FALHA CRÍTICA: ${error.message.toUpperCase()}`;
+                output.appendChild(errorDiv);
+            }
+        }
+
+        function abrirGestao() {
             document.getElementById('admin-modal').classList.remove('hidden');
-            listarUsuariosAdmin();
+            document.getElementById('api-key-input').value = G_API_KEY;
+            listarUsuarios();
         }
 
-        function criarNovoUsuario() {
-            const user = document.getElementById('new-user').value.trim();
-            const pass = document.getElementById('new-pass').value.trim();
-            const nome = document.getElementById('new-name').value.trim();
-            if(!user || !pass || !nome) return;
-            const usuarios = getUsuarios();
-            if (usuarios.find(u => u.user === user)) return;
-            usuarios.push({ user, pass, nome, role: 'user' });
-            localStorage.setItem('rodsys_users', JSON.stringify(usuarios));
-            listarUsuariosAdmin();
+        function salvarApiKey() {
+            const key = document.getElementById('api-key-input').value.trim();
+            if(!key.startsWith("AIza")) {
+                alert("Atenção: A chave inserida não parece ser uma API Key válida do Google.");
+            }
+            G_API_KEY = key;
+            localStorage.setItem('rodsys_gemini_key', key);
+            alert("Núcleo Gemini Sincronizado!");
         }
 
-        function listarUsuariosAdmin() {
+        function listarUsuarios() {
             const lista = document.getElementById('users-list');
             const usuarios = getUsuarios();
             lista.innerHTML = usuarios.map(u => `
-                <div class="flex justify-between items-center p-3 bg-black/40 border border-red-900/20 rounded mb-2">
-                    <div class="text-xs">
-                        <p class="text-white font-bold">${u.nome}</p>
-                        <p class="text-red-500/60">${u.user} | ${u.role}</p>
+                <div class="flex justify-between items-center p-3 bg-red-950/10 border border-red-900/20 rounded-xl mb-2">
+                    <div class="text-[10px]">
+                        <p class="text-white font-black uppercase">${u.nome}</p>
+                        <p class="text-red-600/60 font-bold">${u.user} | ${u.role.toUpperCase()}</p>
                     </div>
-                    ${u.user !== 'admin' ? `<button onclick="removerUser('${u.user}')" class="text-red-600 p-2"><i class="fas fa-trash"></i></button>` : ''}
+                    ${u.user !== 'admin' ? `<button onclick="removerUser('${u.user}')" class="text-red-900 hover:text-red-500"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
             `).join('');
         }
 
-        function removerUser(username) {
-            let usuarios = getUsuarios();
-            usuarios = usuarios.filter(u => u.user !== username);
-            localStorage.setItem('rodsys_users', JSON.stringify(usuarios));
-            listarUsuariosAdmin();
+        function criarUser() {
+            const nome = document.getElementById('new-name').value;
+            const user = document.getElementById('new-user').value;
+            const pass = document.getElementById('new-pass').value;
+            if(!nome || !user || !pass) return;
+            const users = getUsuarios();
+            users.push({ nome, user, pass, role: 'user' });
+            localStorage.setItem('rodsys_users', JSON.stringify(users));
+            listarUsuarios();
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        function removerUser(id) {
+            let users = getUsuarios().filter(u => u.user !== id);
+            localStorage.setItem('rodsys_users', JSON.stringify(users));
+            listarUsuarios();
+        }
+
+        window.onload = () => {
             const saved = sessionStorage.getItem('rodsys_logged');
-            if (saved) {
-                currentUserData = JSON.parse(saved);
-                renderDashboard();
-            }
-        });
+            if (saved) { currentUserData = JSON.parse(saved); renderDashboard(); }
+        };
     </script>
 </head>
 <body>
 
-    <!-- MODAL DE ADMINISTRAÇÃO -->
-    <div id="admin-modal" class="hidden fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4">
-        <div class="glass-effect w-full max-w-4xl rounded-3xl border border-red-500/30 overflow-hidden shadow-2xl">
+    <!-- MODAL GEMINI -->
+    <div id="gemini-modal" class="hidden fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4">
+        <div class="glass-effect w-full max-w-4xl rounded-[40px] border border-red-600/40 shadow-2xl overflow-hidden terminal-glow">
             <div class="p-6 border-b border-red-900/30 flex justify-between items-center bg-red-950/20">
-                <h3 class="text-xl font-black text-white uppercase italic tracking-widest"><i class="fas fa-user-shield mr-2 text-red-600"></i>Gestão de Oficiais e Holonet</h3>
-                <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+                <div class="flex items-center space-x-3">
+                    <div class="w-2 h-2 rounded-full bg-red-600 animate-ping"></div>
+                    <h3 class="text-sm font-black text-white uppercase italic tracking-[0.3em]">Núcleo de Inteligência (Gemini 1.5)</h3>
+                </div>
+                <button onclick="document.getElementById('gemini-modal').classList.add('hidden')" class="text-slate-500 hover:text-white text-2xl transition-all">&times;</button>
             </div>
-            
-            <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-                <!-- COLUNA 1: RECRUTAMENTO -->
-                <div>
-                    <h4 class="text-[10px] font-bold text-red-500 uppercase mb-4 tracking-widest">Recrutar Novo</h4>
-                    <div class="space-y-4">
-                        <input type="text" id="new-name" placeholder="NOME COMPLETO" class="w-full bg-black border border-red-900/30 rounded-xl p-3 text-white text-xs outline-none focus:border-red-600">
-                        <input type="text" id="new-user" placeholder="ID DE ACESSO" class="w-full bg-black border border-red-900/30 rounded-xl p-3 text-white text-xs outline-none focus:border-red-600">
-                        <input type="password" id="new-pass" placeholder="CÓDIGO SITH" class="w-full bg-black border border-red-900/30 rounded-xl p-3 text-white text-xs outline-none focus:border-red-600">
-                        <button onclick="criarNovoUsuario()" class="w-full bg-red-800 hover:bg-red-700 text-white font-black py-3 rounded-xl transition-all uppercase text-[10px] tracking-widest">Confirmar Recrutamento</button>
-                    </div>
+            <div class="p-8 space-y-6">
+                <div id="gemini-output" class="h-80 bg-black/60 border border-red-900/20 rounded-2xl p-6 overflow-y-auto custom-scrollbar font-mono flex flex-col">
+                    <p class="text-red-900/40 text-[10px] uppercase tracking-widest italic mb-4">Núcleo online. Aguardando comandos...</p>
                 </div>
-
-                <!-- COLUNA 2: LISTA -->
-                <div>
-                    <h4 class="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest">Guarnição Ativa</h4>
-                    <div id="users-list" class="max-h-60 overflow-y-auto pr-2 custom-scrollbar"></div>
-                </div>
-
-                <!-- COLUNA 3: HOLONET KEY -->
-                <div class="bg-red-950/10 p-4 rounded-2xl border border-red-900/20">
-                    <h4 class="text-[10px] font-bold text-red-500 uppercase mb-4 tracking-widest">Configuração Holonet (IA)</h4>
-                    <p class="text-[9px] text-slate-400 mb-4 leading-relaxed italic">Insira sua Gemini API Key para permitir a conexão fora do centro de comando (Canvas). A chave é salva localmente no seu navegador.</p>
-                    <div class="space-y-4">
-                        <input type="password" id="holonet-key-input" placeholder="API KEY DA HOLONET" class="w-full bg-black border border-red-900/30 rounded-xl p-3 text-white text-xs outline-none focus:border-red-600">
-                        <button onclick="saveHolonetKey()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3 rounded-xl transition-all uppercase text-[10px] tracking-widest border border-slate-700">Sincronizar Chave</button>
-                        <p id="key-status" class="text-[9px] text-green-500 font-bold uppercase text-center h-4"></p>
-                    </div>
+                <div class="relative">
+                    <input type="text" id="gemini-input" onkeydown="if(event.key==='Enter') enviarOrdemGemini()" placeholder="Ordene melhorias no código ou layout..." 
+                           class="w-full bg-black border border-red-900/40 rounded-2xl py-5 px-8 text-white text-xs outline-none focus:border-red-600 transition-all italic">
+                    <button onclick="enviarOrdemGemini()" class="absolute right-4 top-1/2 -translate-y-1/2 text-red-600 hover:text-red-400 p-2">
+                        <i class="fas fa-bolt"></i>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- TELA DE LOGIN -->
+    <!-- MODAL GESTÃO + API KEY -->
+    <div id="admin-modal" class="hidden fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
+        <div class="glass-effect w-full max-w-5xl rounded-[40px] border border-red-500/30 overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-red-900/30 flex justify-between items-center">
+                <h3 class="text-sm font-black text-white uppercase italic tracking-widest">Centro de Comando Imperial</h3>
+                <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="text-slate-500 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-10">
+                <!-- Configuração API -->
+                <div class="space-y-4">
+                    <h4 class="text-[9px] font-bold text-yellow-600 uppercase tracking-widest">Holonet (Gemini API)</h4>
+                    <input type="password" id="api-key-input" placeholder="COLE SUA API KEY AQUI" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-[10px] outline-none focus:border-red-600">
+                    <button onclick="salvarApiKey()" class="w-full bg-yellow-900/40 hover:bg-yellow-800 text-yellow-500 font-black py-3 rounded-xl uppercase text-[9px]">Sincronizar Núcleo</button>
+                    <p class="text-[8px] text-slate-500 italic">Obtenha sua chave em aistudio.google.com</p>
+                </div>
+                <!-- Criar User -->
+                <div class="space-y-4">
+                    <h4 class="text-[9px] font-bold text-red-600 uppercase tracking-widest">Recrutar Oficial</h4>
+                    <input type="text" id="new-name" placeholder="NOME" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
+                    <input type="text" id="new-user" placeholder="LOGIN" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
+                    <input type="password" id="new-pass" placeholder="SENHA" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
+                    <button onclick="criarUser()" class="w-full bg-red-800 hover:bg-red-700 text-white font-black py-4 rounded-xl uppercase text-[10px]">Cadastrar</button>
+                </div>
+                <!-- Lista Users -->
+                <div class="space-y-4">
+                    <h4 class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Oficiais Ativos</h4>
+                    <div id="users-list" class="max-h-64 overflow-y-auto custom-scrollbar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA LOGIN -->
     <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-black px-6">
-        <div class="glass-effect p-12 rounded-[50px] w-full max-w-sm text-center shadow-[0_0_80px_rgba(220,38,38,0.2)] border-red-900/40">
+        <div class="glass-effect p-12 rounded-[60px] w-full max-w-sm text-center shadow-[0_0_100px_rgba(220,38,38,0.15)] border-red-950/40">
             <div class="logo-container breathe mb-8">
-                <svg class="vader-svg" viewBox="0 0 500 500">
-                    <path d="M250 40 L120 180 L80 380 L160 440 L160 480 L250 510 L340 480 L340 440 L420 380 L380 180 L250 40 Z" />
-                </svg>
+                <svg class="vader-svg" viewBox="0 0 500 500"><path d="M250 40 L120 180 L80 380 L160 440 L160 480 L250 510 L340 480 L340 440 L420 380 L380 180 L250 40 Z" /></svg>
             </div>
             <h1 class="text-4xl font-black text-white uppercase italic tracking-tighter imperial-glow leading-none">RodSys</h1>
-            <p class="text-red-600 text-[9px] font-bold uppercase tracking-[0.5em] mt-3 mb-10">O Lado Negro da Gestão</p>
+            <p class="text-red-600 text-[8px] font-bold uppercase tracking-[0.6em] mt-3 mb-10">O Lado Negro da Gestão</p>
             <div class="space-y-4">
-                <input type="text" id="username" placeholder="IDENTIFICAÇÃO" class="w-full bg-black border border-red-900/30 rounded-2xl py-5 px-6 text-white text-[11px] tracking-widest outline-none focus:border-red-600">
-                <input type="password" id="password" placeholder="CÓDIGO SITH" class="w-full bg-black border border-red-900/30 rounded-2xl py-5 px-6 text-white text-[11px] tracking-widest outline-none focus:border-red-600">
-                <button onclick="login()" class="w-full bg-red-800 hover:bg-red-700 text-white font-black py-5 rounded-2xl transition-all uppercase text-[11px] tracking-[0.4em] mt-6 shadow-lg">Assumir Comando</button>
-                <div id="login-error" class="hidden text-red-500 text-[10px] uppercase font-bold mt-4 tracking-widest">Perturbação na força. Tente novamente.</div>
+                <input type="text" id="username" placeholder="IDENTIFICAÇÃO" class="w-full bg-black border border-red-900/30 rounded-2xl py-5 px-6 text-white text-[10px] tracking-widest outline-none focus:border-red-600">
+                <input type="password" id="password" placeholder="CÓDIGO SITH" class="w-full bg-black border border-red-900/30 rounded-2xl py-5 px-6 text-white text-[10px] tracking-widest outline-none focus:border-red-600">
+                <button onclick="login()" class="w-full bg-red-800 hover:bg-red-700 text-white font-black py-5 rounded-2xl transition-all uppercase text-[10px] tracking-[0.4em] mt-6 shadow-xl">Assumir Comando</button>
+                <div id="login-error" class="hidden text-red-500 text-[9px] uppercase font-bold mt-4 animate-pulse">Perturbação na força. Tente novamente.</div>
             </div>
         </div>
     </div>
 
     <!-- DASHBOARD -->
     <div id="dashboard-screen" class="hidden flex h-screen">
-        <aside class="w-72 bg-black border-r border-red-950/40 flex flex-col">
+        <aside class="w-72 bg-black border-r border-red-950/30 flex flex-col">
             <div class="p-8 border-b border-red-950/20 flex items-center space-x-4">
-                <div class="w-10 h-10 bg-red-600 rounded flex items-center justify-center shadow-[0_0_15px_rgba(220,38,38,0.4)]">
-                    <i class="fas fa-biohazard text-white text-lg"></i>
-                </div>
-                <h2 class="text-2xl font-black text-white italic tracking-tighter">RodSys <span class="text-red-600">Pro</span></h2>
+                <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center"><i class="fas fa-biohazard text-white"></i></div>
+                <h2 class="text-2xl font-black text-white italic tracking-tighter">RodSys</h2>
             </div>
-
-            <nav class="flex-1 mt-6 px-4 space-y-1 overflow-y-auto custom-scrollbar">
-                <p class="text-[9px] font-bold text-red-900 uppercase px-4 mb-4 tracking-[0.3em]">Protocolos</p>
-                <button onclick="carregarModulo('rodsys.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-5 py-4 rounded-xl text-slate-500 transition-all text-left">
+            <nav class="flex-1 mt-8 px-4 space-y-1">
+                <p class="text-[8px] font-black text-red-900 uppercase px-4 mb-4 tracking-[0.4em]">Protocolos</p>
+                <button onclick="carregarModulo('rodsys.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
                     <i class="fas fa-calculator w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Calculadora</span>
                 </button>
-                <button onclick="carregarModulo('SISTEMINHA PARA BUSCAR NOTA FISCAL.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-5 py-4 rounded-xl text-slate-500 transition-all text-left">
+                <button onclick="carregarModulo('SISTEMINHA PARA BUSCAR NOTA FISCAL.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
                     <i class="fas fa-search-dollar w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Buscar Notas</span>
                 </button>
-                <button onclick="carregarModulo('SISTEMINHA PROPOSTA 4.0.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-5 py-4 rounded-xl text-slate-500 transition-all text-left">
-                    <i class="fas fa-file-invoice w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Propostas 4.0</span>
-                </button>
-                <button onclick="carregarModulo('SISTEMA DE LAUDO DO AR RODOLFO.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-5 py-4 rounded-xl text-slate-500 transition-all text-left">
-                    <i class="fas fa-wind w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Laudos de Ar</span>
-                </button>
 
-                <div class="admin-only hidden flex-col pt-6 border-t border-red-950/40 mt-6">
-                    <button onclick="abrirGestaoUsuarios()" class="w-full flex items-center space-x-3 px-5 py-4 rounded-xl text-red-600 border border-red-900/30 hover:bg-red-950/20 transition-all">
-                        <i class="fas fa-user-shield w-5"></i><span class="text-[9px] font-black uppercase tracking-widest">Gestão de Oficiais</span>
+                <div class="admin-only hidden pt-8 border-t border-red-950/40 mt-8 space-y-2">
+                    <button onclick="document.getElementById('gemini-modal').classList.remove('hidden')" class="w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-red-500 bg-red-950/10 border border-red-900/20 hover:bg-red-900/20 transition-all shadow-[0_0_15px_rgba(220,38,38,0.1)]">
+                        <i class="fas fa-hat-wizard w-5 animate-pulse"></i><span class="text-[10px] font-black uppercase tracking-widest">Ajustes Gemini</span>
+                    </button>
+                    <button onclick="abrirGestao()" class="w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-400 hover:text-white transition-all">
+                        <i class="fas fa-user-shield w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Gestão de Oficiais</span>
                     </button>
                 </div>
             </nav>
-
-            <div class="p-6 space-y-3">
-                <button onclick="toggleChat()" class="w-full flex items-center space-x-3 px-5 py-4 rounded-xl text-white bg-gradient-to-r from-red-900/40 to-black border border-red-500/30 font-black text-[9px] uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95">
-                    <i class="fas fa-sparkles text-red-500"></i><span>IA Imperial ✨</span>
-                </button>
-                <button onclick="logout()" class="w-full text-slate-700 hover:text-red-500 text-[9px] font-bold uppercase tracking-widest transition-colors py-2">
-                    Terminar Operação
+            <div class="p-8">
+                <button onclick="logout()" class="w-full text-slate-700 hover:text-red-500 text-[9px] font-black uppercase tracking-[0.3em] transition-colors py-2 flex items-center justify-center">
+                    <i class="fas fa-power-off mr-2"></i> Encerrar
                 </button>
             </div>
         </aside>
 
-        <main class="flex-1 flex flex-col bg-slate-950">
+        <main class="flex-1 flex flex-col">
             <header class="h-20 bg-black border-b border-red-950/20 flex items-center justify-between px-10">
                 <div class="flex items-center space-x-4">
-                    <h2 id="current-module-title" class="text-[10px] font-black text-red-700 uppercase tracking-[0.4em] italic">Consola de Comando</h2>
-                    <span id="loading-indicator" class="hidden text-red-600 animate-spin"><i class="fas fa-circle-notch"></i></span>
+                    <h2 id="current-module-title" class="text-[10px] font-black text-red-700 uppercase tracking-[0.4em] italic leading-none">Consola Imperial</h2>
+                    <span id="loading-indicator" class="hidden text-red-600 animate-spin text-xs"><i class="fas fa-circle-notch"></i></span>
                 </div>
-                <div class="flex items-center space-x-6">
-                    <div class="text-right">
-                        <p id="display-user" class="text-sm font-black text-white uppercase italic tracking-tighter"></p>
-                        <p id="user-role-label" class="text-[8px] text-red-700 font-bold uppercase tracking-widest"></p>
-                    </div>
+                <div class="text-right">
+                    <p id="display-user" class="text-sm font-black text-white uppercase italic tracking-tighter leading-none"></p>
+                    <p id="user-role-label" class="text-[8px] text-red-700 font-bold uppercase tracking-[0.3em] mt-1"></p>
                 </div>
             </header>
-
             <div id="app-container">
                 <div id="welcome-overlay" class="absolute inset-0 flex items-center justify-center flex-col bg-black z-10">
                     <div class="opacity-10 scale-[1.2] breathe">
@@ -387,29 +330,9 @@
                     </div>
                     <h1 class="text-6xl font-black text-red-950 uppercase tracking-[30px] italic mt-16">RodSys</h1>
                 </div>
-                <iframe id="main-frame" name="main-frame" src="about:blank" onload="finalizarCarga()"></iframe>
+                <iframe id="main-frame" name="main-frame" src="about:blank" onload="document.getElementById('loading-indicator').classList.add('hidden')"></iframe>
             </div>
         </main>
-    </div>
-
-    <!-- CHAT IA -->
-    <div id="gemini-chat" class="glass-effect flex flex-col">
-        <div class="p-5 border-b border-red-900/30 flex items-center justify-between bg-red-950/20">
-            <div class="flex items-center space-x-3">
-                <i class="fas fa-robot text-red-500"></i>
-                <span class="text-[11px] font-black text-white uppercase tracking-widest">Inteligência Imperial ✨</span>
-            </div>
-            <button onclick="toggleChat()" class="text-slate-500 hover:text-white transition-colors"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="chat-messages" class="flex-1 p-6 overflow-y-auto custom-scrollbar flex flex-col bg-black/40">
-            <div class="chat-msg msg-ai">Transmissão segura estabelecida. Aguardando ordens, meu Lorde Comandante.</div>
-        </div>
-        <div class="p-5 border-t border-red-900/30 bg-black/60 flex items-center space-x-3">
-            <input type="text" id="chat-input" onkeypress="if(event.key === 'Enter') sendChatMessage()" placeholder="Ordem estratégica..." class="flex-1 bg-black border border-red-900/30 rounded-2xl px-5 py-3 text-xs text-white outline-none focus:border-red-600 transition-all">
-            <button onclick="sendChatMessage()" class="bg-red-800 hover:bg-red-700 w-12 h-12 rounded-2xl text-white transition-all flex items-center justify-center">
-                <i class="fas fa-paper-plane text-sm"></i>
-            </button>
-        </div>
     </div>
 </body>
 </html>
