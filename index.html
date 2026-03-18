@@ -38,7 +38,8 @@
     </style>
 
     <script>
-        const apiKey = ""; // O ambiente injetará a chave automaticamente
+        // Agora buscamos a chave do armazenamento local para que funcione no seu navegador
+        let G_API_KEY = localStorage.getItem('rodsys_gemini_key') || ""; 
         let currentUserData = null;
 
         // --- DATABASE HELPERS ---
@@ -102,6 +103,15 @@
 
             if (!prompt) return;
 
+            // Verificação de segurança da chave
+            if (!G_API_KEY) {
+                const err = document.createElement('p');
+                err.className = "text-yellow-500 text-[10px] mb-4 uppercase";
+                err.innerText = "ALERTA: CHAVE API NÃO ENCONTRADA. VÁ A GESTÃO DE OFICIAIS.";
+                output.appendChild(err);
+                return;
+            }
+
             const userMsg = document.createElement('div');
             userMsg.className = "text-white/50 text-[10px] mb-2 font-bold uppercase tracking-widest";
             userMsg.innerText = `> ${prompt}`;
@@ -116,32 +126,24 @@
             output.scrollTop = output.scrollHeight;
 
             try {
-                let retries = 0;
-                const maxRetries = 5;
-                let response;
-
-                const systemPrompt = "Você é o núcleo de inteligência do RodSys, um portal de gestão com temática imperial (Star Wars). Sua função é ajudar o administrador a ajustar o sistema, gerar códigos HTML/JS para novos módulos ou sugerir melhorias técnicas. Responda de forma curta, técnica e sempre tratando o usuário como Lorde ou Comandante. Se gerar código, use blocos de código markdown.";
-
-                while (retries < maxRetries) {
-                    try {
-                        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{ parts: [{ text: prompt }] }],
-                                systemInstruction: { parts: [{ text: systemPrompt }] }
-                            })
-                        });
-                        if (response.ok) break;
-                        retries++;
-                        await new Promise(r => setTimeout(r, Math.pow(2, retries) * 1000));
-                    } catch (e) {
-                        retries++;
-                        if (retries === maxRetries) throw e;
-                    }
-                }
+                // Usando o modelo gemini-1.5-flash que é o mais estável para chaves externas
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ 
+                            parts: [{ text: `Você é o núcleo de inteligência do RodSys (temática Star Wars). Responda de forma curta e técnica ao Comandante sobre: ${prompt}` }] 
+                        }]
+                    })
+                });
 
                 loadingMsg.remove();
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || "Falha na comunicação");
+                }
+
                 const result = await response.json();
                 const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Erro na comunicação com o núcleo.";
                 
@@ -155,15 +157,23 @@
                 loadingMsg.remove();
                 const errorMsg = document.createElement('p');
                 errorMsg.className = "text-red-700 font-bold uppercase text-[10px]";
-                errorMsg.innerText = "FALHA CRÍTICA: LIGAÇÃO HOLONET INTERROMPIDA.";
+                errorMsg.innerText = `FALHA CRÍTICA: ${error.message.toUpperCase()}`;
                 output.appendChild(errorMsg);
             }
         }
 
-        // Gestão de Usuários
+        // Gestão de Usuários e API Key
         function abrirGestao() {
             document.getElementById('admin-modal').classList.remove('hidden');
+            document.getElementById('api-key-input').value = G_API_KEY;
             listarUsuarios();
+        }
+
+        function salvarConfig() {
+            const key = document.getElementById('api-key-input').value.trim();
+            G_API_KEY = key;
+            localStorage.setItem('rodsys_gemini_key', key);
+            alert("Sistema Sincronizado com a Holonet!");
         }
 
         function listarUsuarios() {
@@ -220,32 +230,40 @@
                     <p class="text-red-900/40 text-[10px] uppercase tracking-widest italic mb-4">Núcleo online. Aguardando comandos do Lorde Comandante...</p>
                 </div>
                 <div class="relative">
-                    <input type="text" id="gemini-input" onkeydown="if(event.key==='Enter') enviarOrdemGemini()" placeholder="Ex: 'Gere um script para exportar dados' ou 'Sugira melhorias no layout'..." 
+                    <input type="text" id="gemini-input" onkeydown="if(event.key==='Enter') enviarOrdemGemini()" placeholder="Ex: 'Gere um script para exportar dados'..." 
                            class="w-full bg-black border border-red-900/40 rounded-2xl py-5 px-8 text-white text-xs outline-none focus:border-red-600 transition-all italic">
                     <button onclick="enviarOrdemGemini()" class="absolute right-4 top-1/2 -translate-y-1/2 text-red-600 hover:text-red-400 p-2">
                         <i class="fas fa-bolt"></i>
                     </button>
                 </div>
-                <p class="text-[8px] text-slate-600 text-center uppercase tracking-widest font-bold">Nota: As alterações de código sugeridas devem ser aplicadas manualmente no ficheiro fonte.</p>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DE GESTÃO DE USUÁRIOS -->
+    <!-- MODAL DE GESTÃO DE USUÁRIOS E API -->
     <div id="admin-modal" class="hidden fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
-        <div class="glass-effect w-full max-w-4xl rounded-[40px] border border-red-500/30 overflow-hidden shadow-2xl">
+        <div class="glass-effect w-full max-w-5xl rounded-[40px] border border-red-500/30 overflow-hidden shadow-2xl">
             <div class="p-6 border-b border-red-900/30 flex justify-between items-center">
-                <h3 class="text-sm font-black text-white uppercase italic tracking-widest">Gestão de Oficiais</h3>
+                <h3 class="text-sm font-black text-white uppercase italic tracking-widest">Centro de Comando</h3>
                 <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="text-slate-500 hover:text-white text-2xl">&times;</button>
             </div>
-            <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-10">
+                <!-- Coluna API -->
+                <div class="space-y-4">
+                    <h4 class="text-[9px] font-bold text-yellow-600 uppercase tracking-widest">Sincronização Holonet</h4>
+                    <input type="password" id="api-key-input" placeholder="COLE SUA API KEY AQUI" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-[10px] outline-none focus:border-red-600">
+                    <button onclick="salvarConfig()" class="w-full bg-yellow-900/40 hover:bg-yellow-700 text-yellow-500 font-black py-3 rounded-xl uppercase text-[9px]">Sincronizar Núcleo</button>
+                    <p class="text-[8px] text-slate-500 italic">Isso ativa a IA no seu navegador.</p>
+                </div>
+                <!-- Coluna Recrutamento -->
                 <div class="space-y-4">
                     <h4 class="text-[9px] font-bold text-red-600 uppercase tracking-widest">Recrutar Oficial</h4>
-                    <input type="text" id="new-name" placeholder="NOME" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none focus:border-red-600">
-                    <input type="text" id="new-user" placeholder="LOGIN" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none focus:border-red-600">
-                    <input type="password" id="new-pass" placeholder="SENHA" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none focus:border-red-600">
+                    <input type="text" id="new-name" placeholder="NOME" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
+                    <input type="text" id="new-user" placeholder="LOGIN" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
+                    <input type="password" id="new-pass" placeholder="SENHA" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
                     <button onclick="criarUser()" class="w-full bg-red-800 hover:bg-red-700 text-white font-black py-4 rounded-xl uppercase text-[10px]">Cadastrar</button>
                 </div>
+                <!-- Coluna Lista -->
                 <div class="space-y-4">
                     <h4 class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Oficiais Ativos</h4>
                     <div id="users-list" class="max-h-60 overflow-y-auto custom-scrollbar"></div>
@@ -287,14 +305,7 @@
                 <button onclick="carregarModulo('SISTEMINHA PARA BUSCAR NOTA FISCAL.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
                     <i class="fas fa-search-dollar w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Buscar Notas</span>
                 </button>
-                <button onclick="carregarModulo('SISTEMINHA PROPOSTA 4.0.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
-                    <i class="fas fa-file-invoice w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Propostas 4.0</span>
-                </button>
-                <button onclick="carregarModulo('SISTEMA DE LAUDO DO AR RODOLFO.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
-                    <i class="fas fa-wind w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Laudos de Ar</span>
-                </button>
 
-                <!-- ADMIN ONLY BUTTONS -->
                 <div class="admin-only hidden pt-8 border-t border-red-950/40 mt-8 space-y-2">
                     <button onclick="document.getElementById('gemini-modal').classList.remove('hidden')" class="w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-red-500 bg-red-950/10 border border-red-900/20 hover:bg-red-900/20 transition-all shadow-[0_0_15px_rgba(220,38,38,0.1)]">
                         <i class="fas fa-hat-wizard w-5 animate-pulse"></i><span class="text-[10px] font-black uppercase tracking-widest">Ajustes Gemini</span>
