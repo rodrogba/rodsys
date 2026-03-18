@@ -15,6 +15,7 @@
         #app-container { flex: 1; position: relative; background: #000; height: 100%; width: 100%; }
         iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: white; }
         
+        /* LOGO DARTH VADER */
         .logo-container { width: 220px; height: 200px; margin: 0 auto; position: relative; display: flex; align-items: center; justify-content: center; }
         .vader-svg { width: 100%; height: 100%; fill: white; filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.5)); }
 
@@ -29,18 +30,24 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 10px; }
         
         .imperial-glow { text-shadow: 0 0 15px rgba(239, 68, 68, 0.6); }
+
+        /* Terminal Gemini */
         .terminal-glow { box-shadow: 0 0 20px rgba(220, 38, 38, 0.2); border: 1px solid rgba(220, 38, 38, 0.3); }
+        .typing-cursor::after { content: "|"; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
     </style>
 
     <script>
-        let G_API_KEY = localStorage.getItem('rodsys_gemini_key') || ""; 
+        const apiKey = ""; // O ambiente injetará a chave automaticamente
         let currentUserData = null;
 
+        // --- DATABASE HELPERS ---
         function getUsuarios() {
             const data = localStorage.getItem('rodsys_users');
             return data ? JSON.parse(data) : [{ user: 'admin', pass: 'rodolfo123', nome: 'Rodolfo Master', role: 'admin' }];
         }
 
+        // --- CORE FUNCTIONS ---
         function login() {
             const userIn = document.getElementById('username').value.trim();
             const passIn = document.getElementById('password').value.trim();
@@ -87,17 +94,13 @@
             window.location.reload();
         }
 
-        // --- GEMINI INTEGRATION (VERSÃO ESTÁVEL) ---
+        // --- GEMINI INTEGRATION (ADMIN ONLY) ---
         async function enviarOrdemGemini() {
             const input = document.getElementById('gemini-input');
             const output = document.getElementById('gemini-output');
             const prompt = input.value.trim();
 
             if (!prompt) return;
-            if (!G_API_KEY) {
-                alert("Erro: A Chave da Holonet (API Key) não foi configurada na Gestão de Oficiais.");
-                return;
-            }
 
             const userMsg = document.createElement('div');
             userMsg.className = "text-white/50 text-[10px] mb-2 font-bold uppercase tracking-widest";
@@ -113,28 +116,34 @@
             output.scrollTop = output.scrollHeight;
 
             try {
-                // Usando o modelo gemini-1.5-flash que é estável para produção e API Keys externas
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${G_API_KEY}`;
-                
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ 
-                            parts: [{ text: `System Instruction: Você é o núcleo de inteligência do RodSys, um portal de gestão com temática imperial (Star Wars). Ajude o administrador a ajustar o sistema. Responda de forma curta, técnica e trate o usuário como Lorde ou Comandante. User prompt: ${prompt}` }] 
-                        }]
-                    })
-                });
+                let retries = 0;
+                const maxRetries = 5;
+                let response;
 
-                loadingMsg.remove();
+                const systemPrompt = "Você é o núcleo de inteligência do RodSys, um portal de gestão com temática imperial (Star Wars). Sua função é ajudar o administrador a ajustar o sistema, gerar códigos HTML/JS para novos módulos ou sugerir melhorias técnicas. Responda de forma curta, técnica e sempre tratando o usuário como Lorde ou Comandante. Se gerar código, use blocos de código markdown.";
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error?.message || "Erro na API");
+                while (retries < maxRetries) {
+                    try {
+                        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: prompt }] }],
+                                systemInstruction: { parts: [{ text: systemPrompt }] }
+                            })
+                        });
+                        if (response.ok) break;
+                        retries++;
+                        await new Promise(r => setTimeout(r, Math.pow(2, retries) * 1000));
+                    } catch (e) {
+                        retries++;
+                        if (retries === maxRetries) throw e;
+                    }
                 }
 
+                loadingMsg.remove();
                 const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sem resposta do núcleo.";
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Erro na comunicação com o núcleo.";
                 
                 const responseDiv = document.createElement('div');
                 responseDiv.className = "text-slate-300 text-[11px] leading-relaxed whitespace-pre-wrap border-l-2 border-red-600 pl-4 mb-6";
@@ -144,27 +153,17 @@
 
             } catch (error) {
                 loadingMsg.remove();
-                const errorDiv = document.createElement('div');
-                errorDiv.className = "text-red-700 font-bold uppercase text-[10px] mb-4 bg-red-900/10 p-3 rounded-lg border border-red-900/30";
-                errorDiv.innerText = `FALHA CRÍTICA: ${error.message.toUpperCase()}`;
-                output.appendChild(errorDiv);
+                const errorMsg = document.createElement('p');
+                errorMsg.className = "text-red-700 font-bold uppercase text-[10px]";
+                errorMsg.innerText = "FALHA CRÍTICA: LIGAÇÃO HOLONET INTERROMPIDA.";
+                output.appendChild(errorMsg);
             }
         }
 
+        // Gestão de Usuários
         function abrirGestao() {
             document.getElementById('admin-modal').classList.remove('hidden');
-            document.getElementById('api-key-input').value = G_API_KEY;
             listarUsuarios();
-        }
-
-        function salvarApiKey() {
-            const key = document.getElementById('api-key-input').value.trim();
-            if(!key.startsWith("AIza")) {
-                alert("Atenção: A chave inserida não parece ser uma API Key válida do Google.");
-            }
-            G_API_KEY = key;
-            localStorage.setItem('rodsys_gemini_key', key);
-            alert("Núcleo Gemini Sincronizado!");
         }
 
         function listarUsuarios() {
@@ -206,64 +205,56 @@
 </head>
 <body>
 
-    <!-- MODAL GEMINI -->
+    <!-- MODAL DE AJUSTES GEMINI (ADMIN ONLY) -->
     <div id="gemini-modal" class="hidden fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4">
         <div class="glass-effect w-full max-w-4xl rounded-[40px] border border-red-600/40 shadow-2xl overflow-hidden terminal-glow">
             <div class="p-6 border-b border-red-900/30 flex justify-between items-center bg-red-950/20">
                 <div class="flex items-center space-x-3">
                     <div class="w-2 h-2 rounded-full bg-red-600 animate-ping"></div>
-                    <h3 class="text-sm font-black text-white uppercase italic tracking-[0.3em]">Núcleo de Inteligência (Gemini 1.5)</h3>
+                    <h3 class="text-sm font-black text-white uppercase italic tracking-[0.3em]">Terminal de Ajustes Sith (Gemini)</h3>
                 </div>
                 <button onclick="document.getElementById('gemini-modal').classList.add('hidden')" class="text-slate-500 hover:text-white text-2xl transition-all">&times;</button>
             </div>
             <div class="p-8 space-y-6">
                 <div id="gemini-output" class="h-80 bg-black/60 border border-red-900/20 rounded-2xl p-6 overflow-y-auto custom-scrollbar font-mono flex flex-col">
-                    <p class="text-red-900/40 text-[10px] uppercase tracking-widest italic mb-4">Núcleo online. Aguardando comandos...</p>
+                    <p class="text-red-900/40 text-[10px] uppercase tracking-widest italic mb-4">Núcleo online. Aguardando comandos do Lorde Comandante...</p>
                 </div>
                 <div class="relative">
-                    <input type="text" id="gemini-input" onkeydown="if(event.key==='Enter') enviarOrdemGemini()" placeholder="Ordene melhorias no código ou layout..." 
+                    <input type="text" id="gemini-input" onkeydown="if(event.key==='Enter') enviarOrdemGemini()" placeholder="Ex: 'Gere um script para exportar dados' ou 'Sugira melhorias no layout'..." 
                            class="w-full bg-black border border-red-900/40 rounded-2xl py-5 px-8 text-white text-xs outline-none focus:border-red-600 transition-all italic">
                     <button onclick="enviarOrdemGemini()" class="absolute right-4 top-1/2 -translate-y-1/2 text-red-600 hover:text-red-400 p-2">
                         <i class="fas fa-bolt"></i>
                     </button>
                 </div>
+                <p class="text-[8px] text-slate-600 text-center uppercase tracking-widest font-bold">Nota: As alterações de código sugeridas devem ser aplicadas manualmente no ficheiro fonte.</p>
             </div>
         </div>
     </div>
 
-    <!-- MODAL GESTÃO + API KEY -->
+    <!-- MODAL DE GESTÃO DE USUÁRIOS -->
     <div id="admin-modal" class="hidden fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
-        <div class="glass-effect w-full max-w-5xl rounded-[40px] border border-red-500/30 overflow-hidden shadow-2xl">
+        <div class="glass-effect w-full max-w-4xl rounded-[40px] border border-red-500/30 overflow-hidden shadow-2xl">
             <div class="p-6 border-b border-red-900/30 flex justify-between items-center">
-                <h3 class="text-sm font-black text-white uppercase italic tracking-widest">Centro de Comando Imperial</h3>
+                <h3 class="text-sm font-black text-white uppercase italic tracking-widest">Gestão de Oficiais</h3>
                 <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="text-slate-500 hover:text-white text-2xl">&times;</button>
             </div>
-            <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-10">
-                <!-- Configuração API -->
-                <div class="space-y-4">
-                    <h4 class="text-[9px] font-bold text-yellow-600 uppercase tracking-widest">Holonet (Gemini API)</h4>
-                    <input type="password" id="api-key-input" placeholder="COLE SUA API KEY AQUI" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-[10px] outline-none focus:border-red-600">
-                    <button onclick="salvarApiKey()" class="w-full bg-yellow-900/40 hover:bg-yellow-800 text-yellow-500 font-black py-3 rounded-xl uppercase text-[9px]">Sincronizar Núcleo</button>
-                    <p class="text-[8px] text-slate-500 italic">Obtenha sua chave em aistudio.google.com</p>
-                </div>
-                <!-- Criar User -->
+            <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div class="space-y-4">
                     <h4 class="text-[9px] font-bold text-red-600 uppercase tracking-widest">Recrutar Oficial</h4>
-                    <input type="text" id="new-name" placeholder="NOME" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
-                    <input type="text" id="new-user" placeholder="LOGIN" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
-                    <input type="password" id="new-pass" placeholder="SENHA" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none">
+                    <input type="text" id="new-name" placeholder="NOME" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none focus:border-red-600">
+                    <input type="text" id="new-user" placeholder="LOGIN" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none focus:border-red-600">
+                    <input type="password" id="new-pass" placeholder="SENHA" class="w-full bg-black border border-red-900/20 rounded-xl p-4 text-white text-xs outline-none focus:border-red-600">
                     <button onclick="criarUser()" class="w-full bg-red-800 hover:bg-red-700 text-white font-black py-4 rounded-xl uppercase text-[10px]">Cadastrar</button>
                 </div>
-                <!-- Lista Users -->
                 <div class="space-y-4">
                     <h4 class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Oficiais Ativos</h4>
-                    <div id="users-list" class="max-h-64 overflow-y-auto custom-scrollbar"></div>
+                    <div id="users-list" class="max-h-60 overflow-y-auto custom-scrollbar"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- TELA LOGIN -->
+    <!-- TELA DE LOGIN -->
     <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-black px-6">
         <div class="glass-effect p-12 rounded-[60px] w-full max-w-sm text-center shadow-[0_0_100px_rgba(220,38,38,0.15)] border-red-950/40">
             <div class="logo-container breathe mb-8">
@@ -287,6 +278,7 @@
                 <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center"><i class="fas fa-biohazard text-white"></i></div>
                 <h2 class="text-2xl font-black text-white italic tracking-tighter">RodSys</h2>
             </div>
+
             <nav class="flex-1 mt-8 px-4 space-y-1">
                 <p class="text-[8px] font-black text-red-900 uppercase px-4 mb-4 tracking-[0.4em]">Protocolos</p>
                 <button onclick="carregarModulo('rodsys.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
@@ -295,7 +287,14 @@
                 <button onclick="carregarModulo('SISTEMINHA PARA BUSCAR NOTA FISCAL.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
                     <i class="fas fa-search-dollar w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Buscar Notas</span>
                 </button>
+                <button onclick="carregarModulo('SISTEMINHA PROPOSTA 4.0.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
+                    <i class="fas fa-file-invoice w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Propostas 4.0</span>
+                </button>
+                <button onclick="carregarModulo('SISTEMA DE LAUDO DO AR RODOLFO.html', this)" class="sidebar-item w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-slate-500 transition-all text-left">
+                    <i class="fas fa-wind w-5"></i><span class="text-[10px] font-black uppercase tracking-widest">Laudos de Ar</span>
+                </button>
 
+                <!-- ADMIN ONLY BUTTONS -->
                 <div class="admin-only hidden pt-8 border-t border-red-950/40 mt-8 space-y-2">
                     <button onclick="document.getElementById('gemini-modal').classList.remove('hidden')" class="w-full flex items-center space-x-3 px-6 py-4 rounded-2xl text-red-500 bg-red-950/10 border border-red-900/20 hover:bg-red-900/20 transition-all shadow-[0_0_15px_rgba(220,38,38,0.1)]">
                         <i class="fas fa-hat-wizard w-5 animate-pulse"></i><span class="text-[10px] font-black uppercase tracking-widest">Ajustes Gemini</span>
@@ -305,6 +304,7 @@
                     </button>
                 </div>
             </nav>
+
             <div class="p-8">
                 <button onclick="logout()" class="w-full text-slate-700 hover:text-red-500 text-[9px] font-black uppercase tracking-[0.3em] transition-colors py-2 flex items-center justify-center">
                     <i class="fas fa-power-off mr-2"></i> Encerrar
