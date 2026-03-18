@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RodSys - Gestão de Notas Fiscais</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f0f7ff;
+            letter-spacing: -0.01em;
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 1);
+            border: 1px solid #d0e1fd;
+            border-radius: 1.5rem;
+        }
+
+        .highlight-min {
+            animation: pulse-blue 2s infinite;
+            background-color: #e0f2fe !important;
+            border: 2px solid #0ea5e9 !important;
+        }
+
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #bae6fd;
+            border-radius: 10px;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .copyable {
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .copyable:hover {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+
+        .btn-filter-active {
+            background-color: #ef4444 !important;
+            color: white !important;
+            border-color: #ef4444 !important;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-[1600px] mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
+            <div class="flex items-center gap-4">
+                <div class="bg-[#0c2d57] p-3 rounded-2xl shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-5xl font-[800] text-[#0c2d57] leading-tight">Rod<span class="text-[#3b82f6]">Sys</span></h1>
+                    <div class="flex items-center gap-2">
+                        <p class="text-[#507299] font-bold text-sm tracking-widest uppercase">Organizador de Licitação</p>
+                        <span id="headerCounter" class="bg-blue-600 text-white px-3 py-0.5 rounded-full text-xs font-black hidden">0 ITENS</span>
+                        <span id="storageMode" class="bg-amber-500 text-white px-3 py-0.5 rounded-full text-[10px] font-black uppercase">Modo Local</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-3">
+                <label class="cursor-pointer bg-[#0c2d57] hover:bg-black text-white px-6 py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Importar XML
+                    <input type="file" id="xmlInput" accept=".xml" class="hidden" multiple>
+                </label>
+
+                <label class="cursor-pointer bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-xl shadow-red-200 flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Buscar PDFs
+                    <input type="file" id="pdfFileInput" accept=".pdf" class="hidden" multiple>
+                </label>
+
+                <button id="btnLimpar" class="px-6 py-4 bg-white border-2 border-red-100 text-red-500 rounded-2xl hover:bg-red-50 transition-all font-bold">
+                    Limpar Tudo
+                </button>
+            </div>
+        </header>
+
+        <!-- Filtros -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="md:col-span-3 glass-card p-4">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Filtrar por nome, nota ou chave de acesso..." 
+                           class="w-full pl-12 pr-4 py-4 border border-[#d0e1fd] rounded-2xl focus:ring-2 focus:ring-[#3b82f6] outline-none font-medium text-[#0c2d57]">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+            <button id="btnFilterOld" class="glass-card p-4 flex flex-col items-center justify-center transition-all hover:border-red-400 group">
+                <span class="text-[10px] font-black text-slate-400 uppercase group-hover:text-red-500">Filtrar Antigas</span>
+                <span class="text-sm font-bold text-[#0c2d57] group-hover:text-red-600">+6 Meses</span>
+            </button>
+        </div>
+
+        <!-- Tabela -->
+        <div class="glass-card shadow-xl overflow-hidden min-h-[400px]">
+            <div class="overflow-x-auto custom-scroll">
+                <table class="w-full text-left border-collapse" id="mainTable">
+                    <thead>
+                        <tr class="bg-[#f8faff] border-b border-[#d0e1fd]">
+                            <th class="px-6 py-5 text-[11px] font-black text-[#507299] uppercase tracking-widest w-28">Nº Nota / Data</th>
+                            <th class="px-6 py-5 text-[11px] font-black text-[#507299] uppercase tracking-widest w-64">Chave de Acesso (44 Dígitos)</th>
+                            <th class="px-6 py-5 text-[11px] font-black text-[#507299] uppercase tracking-widest">Descrição do Item</th>
+                            <th class="px-6 py-5 text-[11px] font-black text-[#507299] uppercase tracking-widest text-center w-24">Qtd</th>
+                            <th class="px-6 py-5 text-[11px] font-black text-[#507299] uppercase tracking-widest text-center w-20">Un</th>
+                            <th class="px-6 py-5 text-[11px] font-black text-[#507299] uppercase tracking-widest text-right">Preço Unit.</th>
+                            <th class="px-6 py-5 text-[11px] font-black text-[#507299] uppercase tracking-widest text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-[#f0f7ff]">
+                    </tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="py-24 text-center">
+                <p class="text-[#93c5fd] font-bold">Importe XMLs ou múltiplos PDFs para organizar os itens. Clique em uma informação para copiá-la.</p>
+            </div>
+        </div>
+
+        <!-- Rodapé -->
+        <footer class="mt-8 flex justify-between items-center bg-[#0c2d57] p-8 rounded-3xl text-white">
+            <div class="flex gap-12">
+                <div>
+                    <p class="text-blue-300 text-[10px] font-black uppercase tracking-tighter">Itens Exibidos</p>
+                    <p id="statCount" class="text-3xl font-black">0</p>
+                </div>
+                <div>
+                    <p class="text-blue-300 text-[10px] font-black uppercase tracking-tighter">Total Exibido</p>
+                    <p id="statTotal" class="text-3xl font-black">R$ 0,00</p>
+                </div>
+            </div>
+            <button id="btnDestaque" class="bg-[#3b82f6] px-8 py-4 rounded-2xl font-bold hover:bg-blue-400 transition-all">Destacar Menores Preços</button>
+        </footer>
+    </div>
+
+    <!-- Overlay Loading -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/90 backdrop-blur-md z-[100] flex items-center justify-center hidden">
+        <div class="text-center">
+            <div class="loader mx-auto mb-4"></div>
+            <p id="loadingMsg" class="text-[#0c2d57] font-black uppercase">SINCRONIZANDO...</p>
+        </div>
+    </div>
+
+    <!-- Notificação -->
+    <div id="notification" class="fixed bottom-8 right-8 transform translate-y-20 opacity-0 transition-all duration-500 bg-[#0c2d57] text-white px-8 py-4 rounded-2xl shadow-2xl z-50">
+        <span id="notifMessage" class="font-bold text-sm"></span>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const isFirebaseEnabled = typeof __firebase_config !== 'undefined';
+        let db, auth, appId, user = null;
+        let allProducts = [];
+        let filterOldActive = false;
+
+        window.copyToClipboard = (text, element) => {
+            if (!text || text === 'NÃO IDENTIFICADA') return;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showNotification(`Copiado: ${text.substring(0, 20)}...`);
+                const originalColor = element.style.color;
+                element.style.color = "#10b981";
+                setTimeout(() => { element.style.color = originalColor; }, 1000);
+            } catch (err) {}
+            document.body.removeChild(textArea);
+        };
+
+        if (isFirebaseEnabled) {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'rodsys-licitacao-default';
+            document.getElementById('storageMode').textContent = "Nuvem Sincronizada";
+            document.getElementById('storageMode').classList.replace('bg-amber-500', 'bg-green-500');
+
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else { await signInAnonymously(auth); }
+                } catch (e) { fallbackToLocalStorage(); }
+            };
+
+            onAuthStateChanged(auth, (u) => {
+                user = u;
+                if (user) setupRealtimeSync();
+            });
+            initAuth();
+        } else { fallbackToLocalStorage(); }
+
+        function fallbackToLocalStorage() {
+            const saved = localStorage.getItem('rodsys_itens');
+            if (saved) {
+                allProducts = JSON.parse(saved);
+                applyFilters();
+            }
+        }
+
+        function setupRealtimeSync() {
+            if (!user) return;
+            const collectionPath = collection(db, 'artifacts', appId, 'users', user.uid, 'itens_licitacao');
+            onSnapshot(collectionPath, (snapshot) => {
+                allProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                applyFilters();
+            }, (error) => fallbackToLocalStorage());
+        }
+
+        async function saveItemsToDatabase(products) {
+            if (isFirebaseEnabled && user) {
+                const chunks = [];
+                for (let i = 0; i < products.length; i += 500) { chunks.push(products.slice(i, i + 500)); }
+                for (const chunk of chunks) {
+                    const batch = writeBatch(db);
+                    chunk.forEach(product => {
+                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'itens_licitacao', product.id);
+                        batch.set(docRef, product);
+                    });
+                    await batch.commit();
+                }
+            } else {
+                const updated = [...allProducts, ...products];
+                localStorage.setItem('rodsys_itens', JSON.stringify(updated));
+                allProducts = updated;
+                applyFilters();
+            }
+        }
+
+        window.limparDados = async () => {
+            if (!confirm("Deseja apagar todos os itens?")) return;
+            showLoading(true, "LIMPANDO DADOS...");
+            if (isFirebaseEnabled && user) {
+                const collectionPath = collection(db, 'artifacts', appId, 'users', user.uid, 'itens_licitacao');
+                const snapshot = await getDocs(collectionPath);
+                const batch = writeBatch(db);
+                snapshot.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+            } else {
+                localStorage.removeItem('rodsys_itens');
+                allProducts = [];
+                applyFilters();
+            }
+            showLoading(false);
+            showNotification("Dados limpos.");
+        };
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        document.getElementById('pdfFileInput').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            showLoading(true, `PROCESSANDO 0/${files.length} PDFs...`);
+            
+            const allExtractedItems = [];
+
+            for (let idx = 0; idx < files.length; idx++) {
+                const file = files[idx];
+                showLoading(true, `LENDO PDF ${idx + 1}/${files.length}...`);
+                
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                    let fullText = "";
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        fullText += textContent.items.map(item => item.str).join(' ') + "\n";
+                    }
+                    const itens = processarTextoPDFLocal(fullText);
+                    allExtractedItems.push(...itens);
+                } catch (err) {
+                    console.error("Erro no PDF:", file.name, err);
+                }
+            }
+
+            if (allExtractedItems.length > 0) {
+                await saveItemsToDatabase(allExtractedItems);
+                showNotification(`${allExtractedItems.length} itens extraídos de ${files.length} PDFs.`);
+            } else {
+                showNotification("Nenhum item detectado nos ficheiros.");
+            }
+            
+            showLoading(false);
+            e.target.value = '';
+        });
+
+        document.getElementById('xmlInput').addEventListener('change', async function(e) {
+            showLoading(true, "IMPORTANDO XML...");
+            const files = Array.from(e.target.files);
+            const allExtractedItems = [];
+            for (const file of files) {
+                const text = await file.text();
+                allExtractedItems.push(...parseXMLToItems(text));
+            }
+            if (allExtractedItems.length > 0) {
+                await saveItemsToDatabase(allExtractedItems);
+                showNotification(`${allExtractedItems.length} itens importados!`);
+            }
+            showLoading(false);
+            e.target.value = '';
+        });
+
+        function parseXMLToItems(xmlString) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+            let chave = xmlDoc.getElementsByTagName("chNFe")[0]?.textContent;
+            if(!chave) {
+                const infNFe = xmlDoc.getElementsByTagName("infNFe")[0];
+                chave = infNFe?.getAttribute("Id")?.replace(/\D/g, "") || "";
+            }
+            const nNF = xmlDoc.getElementsByTagName("nNF")[0]?.textContent || "S/N";
+            const dhEmi = xmlDoc.getElementsByTagName("dhEmi")[0]?.textContent || "";
+            const dataEmissao = dhEmi ? dhEmi.substring(0, 10) : "";
+            
+            const detTags = xmlDoc.getElementsByTagName("det");
+            const items = [];
+            for (let i = 0; i < detTags.length; i++) {
+                const prod = detTags[i].getElementsByTagName("prod")[0];
+                items.push({
+                    id: Math.random().toString(36).substr(2, 9) + Date.now(),
+                    nota: nNF,
+                    chave: chave,
+                    data: dataEmissao,
+                    nome: (prod.getElementsByTagName("xProd")[0]?.textContent || "ITEM SEM NOME").toUpperCase(),
+                    qtd: parseFloat(prod.getElementsByTagName("qCom")[0]?.textContent || 0),
+                    unidade: prod.getElementsByTagName("uCom")[0]?.textContent || "UN",
+                    vUni: parseFloat(prod.getElementsByTagName("vUnCom")[0]?.textContent || 0),
+                    vTotal: parseFloat(prod.getElementsByTagName("vProd")[0]?.textContent || 0)
+                });
+            }
+            return items;
+        }
+
+        function processarTextoPDFLocal(text) {
+            const notaMatch = text.match(/(?:NF-E\s*Nº\.|NÚMERO|Nº|NF-e)[:\s]*(\d+(?:\.\d+)*)/i);
+            const numNota = notaMatch ? notaMatch[1].replace(/\./g, '') : "S/N";
+
+            // Data de emissão
+            const dataMatch = text.match(/(\d{2}\/\d{2}\/\d{4})/);
+            const dataEmiRaw = dataMatch ? dataMatch[1] : "";
+            let dataEmissao = "";
+            if(dataEmiRaw) {
+                const [d, m, y] = dataEmiRaw.split('/');
+                dataEmissao = `${y}-${m}-${d}`;
+            }
+
+            let chave = "";
+            const chaveRegexComplex = /(?:CHAVE DE ACESSO|CONSULTA DE AUTENTICIDADE).*?([\d\s]{44,60})/is;
+            const complexMatch = text.match(chaveRegexComplex);
+            if (complexMatch) chave = complexMatch[1].replace(/\D/g, '').substring(0, 44);
+
+            if (!chave || chave.length < 44) {
+                const numericMatch = text.match(/(\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4})/);
+                if (numericMatch) chave = numericMatch[0].replace(/\s/g, '');
+                else {
+                    const longNumberMatch = text.match(/\d{44}/);
+                    if (longNumberMatch) chave = longNumberMatch[0];
+                }
+            }
+
+            const rowRegex = /(.*?)\s+([A-Z]{2,3})\s+(\d{1,6}(?:[.,]\d{1,4})?)\s+(\d{1,6}(?:[.,]\d{1,4})?)\s+(\d{1,7}(?:[.,]\d{1,4})?)/g;
+            let match;
+            const pdfItems = [];
+            while ((match = rowRegex.exec(text)) !== null) {
+                let cleanDesc = match[1].trim()
+                    .replace(/(?:0,00\s?)+/g, '')
+                    .replace(/\d{8,}\s\d{3}\s\d{4}/g, '')
+                    .replace(/^\d{1,6}\s+/, '')
+                    .replace(/.*?DADOS DOS PRODUTOS \/ SERVIÇOS/g, '')
+                    .trim();
+
+                if (cleanDesc.length > 5 && !/^(VALOR|TOTAL|DESCRIÇÃO|BASE|CÁLCULO|CÓDIGO|DADOS|CONTROLE)/i.test(cleanDesc)) {
+                    const qtd = parseNumber(match[3]);
+                    const vUni = parseNumber(match[4]);
+                    const vTotal = parseNumber(match[5]);
+                    
+                    if (qtd > 0 && vUni > 0) {
+                        pdfItems.push({
+                            id: Math.random().toString(36).substr(2, 9) + Date.now(),
+                            nota: numNota,
+                            chave: chave,
+                            data: dataEmissao,
+                            nome: cleanDesc.toUpperCase(),
+                            qtd: qtd,
+                            unidade: match[2],
+                            vUni: vUni,
+                            vTotal: vTotal
+                        });
+                    }
+                }
+            }
+            return pdfItems;
+        }
+
+        function parseNumber(val) { return val ? parseFloat(val.replace(/\./g, '').replace(',', '.')) : 0; }
+
+        function applyFilters() {
+            let filtered = [...allProducts];
+            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+            
+            // Filtro de Texto
+            if (searchVal) {
+                filtered = filtered.filter(p => 
+                    p.nome.toLowerCase().includes(searchVal) || 
+                    p.nota.includes(searchVal) || 
+                    (p.chave && p.chave.includes(searchVal))
+                );
+            }
+
+            // Filtro de 6 meses
+            if (filterOldActive) {
+                const sixMonthsAgo = new Date();
+                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                
+                filtered = filtered.filter(p => {
+                    if (!p.data) return false;
+                    const dataEmi = new Date(p.data);
+                    return dataEmi <= sixMonthsAgo;
+                });
+            }
+
+            renderTable(filtered);
+        }
+
+        function renderTable(data) {
+            const body = document.getElementById('tableBody');
+            body.innerHTML = '';
+            document.getElementById('emptyState').classList.toggle('hidden', data.length > 0);
+            document.getElementById('headerCounter').classList.toggle('hidden', allProducts.length === 0);
+            document.getElementById('headerCounter').textContent = `${allProducts.length} TOTAL`;
+            
+            data.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 transition-colors";
+                tr.setAttribute('data-id', p.id);
+                
+                const formattedKey = p.chave ? p.chave.replace(/(.{4})/g, '$1 ').trim() : 'NÃO IDENTIFICADA';
+                const formattedDate = p.data ? p.data.split('-').reverse().join('/') : '--/--/----';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-5">
+                        <div class="flex flex-col">
+                            <span class="copyable text-xs font-bold text-blue-500 font-mono" onclick="copyToClipboard('${p.nota}', this)">#${p.nota}</span>
+                            <span class="text-[10px] text-slate-400 font-bold">${formattedDate}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-5 text-[10px] font-mono text-slate-400 break-all w-64 uppercase tracking-tighter">
+                        <span class="copyable ${!p.chave ? 'text-red-400 font-bold' : ''}" onclick="copyToClipboard('${p.chave}', this)">${formattedKey}</span>
+                    </td>
+                    <td class="px-6 py-5 text-sm font-bold text-[#0c2d57] uppercase leading-tight">
+                        <span class="copyable" onclick="copyToClipboard('${p.nome}', this)">${p.nome}</span>
+                    </td>
+                    <td class="px-6 py-5 text-sm text-center font-bold text-[#507299]">${p.qtd.toLocaleString('pt-BR')}</td>
+                    <td class="px-6 py-5 text-sm text-center">
+                        <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-[10px] font-black uppercase">${p.unidade}</span>
+                    </td>
+                    <td class="px-6 py-5 text-sm text-right font-black">R$ ${p.vUni.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td class="px-6 py-5 text-sm text-right font-bold text-blue-600">R$ ${p.vTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                `;
+                body.appendChild(tr);
+            });
+            updateStats(data);
+        }
+
+        function updateStats(data) {
+            document.getElementById('statCount').textContent = data.length;
+            const total = data.reduce((acc, curr) => acc + (curr.vTotal || 0), 0);
+            document.getElementById('statTotal').textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        }
+
+        function showLoading(show, msg = "PROCESSANDO...") { 
+            document.getElementById('loadingMsg').textContent = msg;
+            document.getElementById('loadingOverlay').classList.toggle('hidden', !show); 
+        }
+        
+        function showNotification(msg) {
+            const notif = document.getElementById('notification');
+            document.getElementById('notifMessage').textContent = msg;
+            notif.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => notif.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        document.getElementById('btnLimpar').onclick = window.limparDados;
+        
+        document.getElementById('btnFilterOld').onclick = function() {
+            filterOldActive = !filterOldActive;
+            this.classList.toggle('btn-filter-active', filterOldActive);
+            applyFilters();
+            showNotification(filterOldActive ? "Exibindo apenas notas com +6 meses" : "Exibindo todas as notas");
+        };
+
+        document.getElementById('btnDestaque').onclick = () => {
+            document.querySelectorAll('tr').forEach(tr => tr.classList.remove('highlight-min'));
+            const mins = {};
+            allProducts.forEach(p => { if (!mins[p.nome] || p.vUni < mins[p.nome]) mins[p.nome] = p.vUni; });
+            allProducts.forEach(p => {
+                if (p.vUni === mins[p.nome]) {
+                    const el = document.querySelector(`tr[data-id="${p.id}"]`);
+                    if (el) el.classList.add('highlight-min');
+                }
+            });
+        };
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+    </script>
+</body>
+</html>

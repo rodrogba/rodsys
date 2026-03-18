@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Proposta de Preços - Oficial</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/extenso@2.0.1/dist/extenso.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+        .modelo-container {
+            font-family: 'Arial', sans-serif;
+            font-size: 9.5px;
+            color: #1a1a1a;
+            line-height: 1.3;
+            background-color: white;
+            padding: 20mm 15mm;
+            width: 210mm;
+            margin: 0 auto;
+            position: relative; 
+            min-height: 297mm;
+            display: block;
+            box-sizing: border-box;
+            background-repeat: repeat-y;
+            background-position: top center;
+            background-size: 100% auto;
+        }
+
+        .conteudo-proposta {
+            position: relative;
+            z-index: 2;
+            background: transparent;
+            width: 100%;
+        }
+        
+        .header-proposta {
+            text-align: center;
+            font-weight: bold;
+            font-size: 15px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #000;
+            padding-bottom: 5px;
+        }
+
+        .destinatario { margin-bottom: 12px; }
+        .destinatario p { margin: 0; font-weight: bold; font-size: 9.5px; }
+        
+        .texto-introducao { text-align: justify; margin: 10px 0; font-size: 9.2px; }
+
+        .dados-proponente { margin-bottom: 12px; font-size: 9.2px; line-height: 1.4; }
+
+        .objeto-header {
+            background-color: #f3f4f6;
+            text-align: center;
+            font-weight: bold;
+            padding: 4px;
+            margin-bottom: 2px;
+            border: 0.5px solid #000;
+            font-size: 9.5px;
+        }
+
+        .linha-lote-view {
+            background-color: #f9fafb !important;
+            font-weight: bold !important;
+            text-transform: uppercase;
+            font-size: 8.5px !important;
+            border: 0.5px solid #000 !important;
+            padding: 6px !important;
+            text-align: center !important;
+        }
+
+        table.tabela-modelo { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 0px;
+        }
+        table.tabela-modelo th { 
+            background-color: #374151; 
+            color: white; 
+            padding: 4px; 
+            font-size: 8px;
+            text-transform: uppercase; 
+            border: 0.5px solid #000;
+        }
+        table.tabela-modelo td { 
+            border: 0.5px solid #000; 
+            padding: 3px 5px; 
+            font-size: 8px;
+        }
+        
+        .footer-valor { 
+            background-color: #374151; 
+            color: white; 
+            font-weight: bold; 
+            padding: 4px 8px; 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 9px; 
+            border: 0.5px solid #000;
+        }
+
+        .extenso { 
+            background-color: #f3f4f6; 
+            padding: 5px; 
+            text-align: center; 
+            font-weight: bold; 
+            margin-bottom: 12px; 
+            text-transform: uppercase; 
+            font-size: 9px;
+            border: 0.5px solid #000;
+        }
+        
+        .secao-titulo {
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 15px;
+            margin-bottom: 4px;
+            display: block;
+            border-left: 3px solid #374151;
+            padding-left: 5px;
+        }
+
+        .info-item { font-size: 9px; margin-bottom: 2px; }
+
+        /* BLOCO INSEPARÁVEL PARA ASSINATURA */
+        .bloco-final-assinatura {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin-top: 20px;
+        }
+
+        .assinatura-footer { 
+            margin-top: 40px; 
+            padding-bottom: 30px;
+            display: flex; 
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .assinatura-linha { 
+            border-top: 1px solid #000; 
+            padding-top: 5px; 
+            width: 320px; 
+            text-align: center;
+            font-weight: bold; 
+            font-size: 10px; 
+            text-transform: uppercase;
+        }
+
+        .no-print { display: flex; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .modelo-container { box-shadow: none; margin: 0; width: 100%; border: none; }
+        }
+
+        .edit-label { display: block; font-size: 11px; font-weight: 700; color: #4b5563; text-transform: uppercase; margin-bottom: 3px; }
+        .section-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #2563eb; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        #save-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .hidden-col { display: none !important; }
+        .edit-input { width: 100%; background: transparent; border: none; font-size: 12px; padding: 4px; }
+        .item-oculto { opacity: 0.4; background-color: #fee2e2 !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="save-indicator">DADOS ATUALIZADOS!</div>
+
+    <div id="modal-confirm" class="modal-overlay">
+        <div class="modal-content shadow-2xl">
+            <h3 class="text-lg font-bold text-slate-800 mb-2 uppercase">Limpar Tabela?</h3>
+            <p class="text-sm text-slate-600 mb-6">Esta ação irá remover todos os itens e lotes da proposta atual.</p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="closeModal()" class="px-6 py-2 rounded bg-gray-200 text-slate-700 font-bold text-xs uppercase">Cancelar</button>
+                <button onclick="clearTable()" class="px-6 py-2 rounded bg-red-600 text-white font-bold text-xs uppercase">Sim, Limpar Tudo</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bg-slate-900 text-white shadow-md no-print sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
+        <div class="flex gap-4">
+            <button onclick="changeTab('edit')" id="btn-edit" class="px-4 py-2 rounded bg-blue-600 transition text-sm font-medium">1. Dados Empresa / Título</button>
+            <button onclick="changeTab('table')" id="btn-table" class="px-4 py-2 rounded bg-slate-800 transition text-sm font-medium">2. Colar Planilha / Visibilidade</button>
+            <button onclick="changeTab('view')" id="btn-view" class="px-4 py-2 rounded bg-slate-800 transition text-sm font-medium">3. Ver Espelho PDF</button>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="generatePDF()" class="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded text-sm font-bold shadow-lg transition uppercase">Gerar PDF</button>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto py-8">
+        <!-- ABA 1: EDIÇÃO DE DADOS -->
+        <div id="tab-edit" class="tab-content px-4 space-y-8">
+            <div class="section-card border-l-8 border-orange-500">
+                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-3">Título do Documento</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="edit-label">Tipo de Carta / Proposta</label>
+                        <select id="select-tipo-titulo" class="w-full border p-3 rounded bg-gray-50 font-bold text-slate-700" onchange="toggleTituloPersonalizado()">
+                            <option value="CARTA DE APRESENTAÇÃO DE PROPOSTA DE PREÇO">CARTA DE APRESENTAÇÃO DE PROPOSTA DE PREÇO</option>
+                            <option value="COMPOSIÇÃO DE CUSTO">COMPOSIÇÃO DE CUSTO</option>
+                            <option value="PLANILHA ORÇAMENTÁRIA">PLANILHA ORÇAMENTÁRIA</option>
+                            <option value="PERSONALIZADO">OUTRO (DIGITAR ABAIXO)</option>
+                        </select>
+                    </div>
+                    <div id="container-titulo-custom" class="hidden">
+                        <label class="edit-label">Título Personalizado</label>
+                        <input type="text" id="edit-titulo-custom" class="w-full border p-3 rounded bg-gray-50 auto-save uppercase" placeholder="DIGITE O TÍTULO AQUI">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card border-l-8 border-emerald-500">
+                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-3">Fundo da Carta (Timbrado)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <div class="col-span-1">
+                        <label class="edit-label">Upload da Imagem</label>
+                        <input type="file" id="input-timbrado" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700">
+                    </div>
+                    <div>
+                        <label class="edit-label">Opacidade (%)</label>
+                        <input type="range" id="timbrado-opacity" min="0" max="100" value="15" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer auto-save">
+                    </div>
+                    <div>
+                        <label class="edit-label">Escala (%)</label>
+                        <input type="range" id="timbrado-scale" min="10" max="100" value="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer auto-save">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-3">Informações Gerais</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="col-span-2"><label class="edit-label">Órgão Público</label><input type="text" id="edit-orgao" class="w-full border p-3 rounded bg-gray-50 auto-save" value="PREFEITURA MUNICIPAL DE LAGO DA PEDRA"></div>
+                    <div><label class="edit-label">Referente (Edital)</label><input type="text" id="edit-referencia" class="w-full border p-3 rounded bg-gray-50 auto-save" value="PE Nº 007/2026"></div>
+                    <div><label class="edit-label">Processo</label><input type="text" id="edit-processo" class="w-full border p-3 rounded bg-gray-50 auto-save" value="015/2026"></div>
+                    <div class="col-span-2"><label class="edit-label">Objeto</label><textarea id="edit-objeto" class="w-full border p-3 text-sm rounded bg-gray-50 auto-save" rows="3">REGISTRO DE PREÇOS PARA EVENTUAL E FUTURA CONTRATAÇÃO DE EMPRESA PARA FORNECIMENTO DE MEDICAMENTOS PSICOTRÓPICOS DE INTERESSE DA SECRETARIA MUNICIPAL DE SAÚDE DE LAGO DA PEDRA - MA.</textarea></div>
+                    <div class="col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5 mt-6 pt-6 border-t">
+                        <div class="col-span-2"><label class="edit-label">Razão Social</label><input type="text" id="edit-razao" class="w-full border p-3 rounded bg-gray-50 auto-save" value="D FARIAS LIMA E CIA LTDA"></div>
+                        <div class="flex flex-col justify-center">
+                            <label class="edit-label">Simples Nacional?</label>
+                            <div class="flex items-center gap-3 mt-1">
+                                <label class="switch"><input type="checkbox" id="edit-simples" class="auto-save" checked><span class="slider"></span></label>
+                                <span class="text-sm font-bold text-slate-600">SIM</span>
+                            </div>
+                        </div>
+                        <div><label class="edit-label">CNPJ</label><input type="text" id="edit-cnpj" class="w-full border p-3 rounded bg-gray-50 auto-save" value="44.389.725/0001-27"></div>
+                        <div><label class="edit-label">I.E.</label><input type="text" id="edit-ie" class="w-full border p-3 rounded bg-gray-50 auto-save" value="12.821786-3"></div>
+                        <div class="col-span-1"><label class="edit-label">E-mail</label><input type="text" id="edit-email" class="w-full border p-3 rounded bg-gray-50 auto-save" value="empresa@exemplo.com"></div>
+                        <div class="col-span-3"><label class="edit-label">Endereço</label><input type="text" id="edit-endereco" class="w-full border p-3 rounded bg-gray-50 auto-save" value="Rua Exemplo, Nº 123 - Centro"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card border-l-8 border-blue-600">
+                <h2 class="text-xl font-bold text-blue-800 mb-6 border-b pb-3">Prazos e Representante</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="space-y-5">
+                        <div><label class="edit-label">Validade Proposta</label><input type="text" id="edit-val-prazo" class="w-full border p-3 rounded auto-save" value="90 DIAS (noventa dias)"></div>
+                        <div><label class="edit-label">Prazo Execução</label><input type="text" id="edit-exe-prazo" class="w-full border p-3 rounded auto-save" value="Até 72 (setenta e duas) horas."></div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div><label class="edit-label">Banco</label><input type="text" id="edit-banco" class="w-full border p-3 rounded auto-save" value="ITAU"></div>
+                            <div><label class="edit-label">AG</label><input type="text" id="edit-ag" class="w-full border p-3 rounded auto-save" value="1451"></div>
+                            <div><label class="edit-label">CC</label><input type="text" id="edit-cc" class="w-full border p-3 rounded auto-save" value="99506-0"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div><label class="edit-label">Nome Representante</label><input type="text" id="edit-rep-nome" class="w-full border p-3 rounded auto-save" value="FELIPE JHONATAN SILVA PINHEIRO"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="edit-label">Nacionalidade</label><input type="text" id="edit-rep-nacionalidade" class="w-full border p-3 rounded bg-gray-50 auto-save" value="BRASILEIRA"></div>
+                            <div><label class="edit-label">Estado Civil</label><input type="text" id="edit-rep-civil" class="w-full border p-3 rounded bg-gray-50 auto-save" value="CASADO"></div>
+                        </div>
+                        <div><label class="edit-label">Profissão</label><input type="text" id="edit-rep-profissao" class="w-full border p-3 rounded bg-gray-50 auto-save" value="FARMACÊUTICO"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="edit-label">CPF</label><input type="text" id="edit-rep-cpf" class="w-full border p-3 rounded bg-gray-50 auto-save" value="000.000.000-00"></div>
+                            <div><label class="edit-label">RG</label><input type="text" id="edit-rep-rg" class="w-full border p-3 rounded bg-gray-50 auto-save" value="000000000"></div>
+                        </div>
+                        <div><label class="edit-label">Endereço Residencial</label><input type="text" id="edit-rep-end" class="w-full border p-3 rounded bg-gray-50 auto-save" value="Av. Principal, 100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 2: IMPORTAÇÃO -->
+        <div id="tab-table" class="tab-content hidden px-4 space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border-t-4 border-blue-600">
+                <h2 class="text-base font-bold uppercase text-slate-600 mb-4">Configuração de Visibilidade no PDF</h2>
+                <div class="flex flex-wrap gap-6 bg-slate-50 p-4 rounded-lg border">
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="show-col-item" class="auto-save w-4 h-4" checked><span class="text-xs font-bold uppercase text-slate-700">Item</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="show-col-und" class="auto-save w-4 h-4" checked><span class="text-xs font-bold uppercase text-slate-700">Unidade</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="show-col-qtd" class="auto-save w-4 h-4" checked><span class="text-xs font-bold uppercase text-slate-700">Qtd</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="show-col-marca" class="auto-save w-4 h-4" checked><span class="text-xs font-bold uppercase text-slate-700">Marca</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="show-col-unit" class="auto-save w-4 h-4" checked><span class="text-xs font-bold uppercase text-slate-700">Unitário</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="show-col-total" class="auto-save w-4 h-4" checked><span class="text-xs font-bold uppercase text-slate-700">Total</span></label>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold uppercase text-slate-600">Importar Dados do Excel</h2>
+                    <button onclick="openModal()" class="text-[10px] bg-red-100 text-red-700 px-3 py-1 rounded-full font-bold hover:bg-red-200 uppercase">Limpar Tabela</button>
+                </div>
+                <textarea id="raw-table-data" rows="5" class="w-full border-2 border-dashed p-4 text-xs font-mono mb-4 rounded-lg bg-slate-50 focus:border-blue-500 outline-none" placeholder="Cole os dados do Excel aqui..."></textarea>
+                <button onclick="processTable()" class="bg-slate-800 text-white px-8 py-3 rounded text-sm font-bold uppercase mb-8 hover:bg-slate-700">Importar e Processar</button>
+                
+                <div class="overflow-x-auto border rounded-xl max-h-[600px]">
+                    <table class="w-full text-[11px]">
+                        <thead class="bg-slate-100 sticky top-0 z-10">
+                            <tr>
+                                <th class="p-3 border-b text-left">IT</th>
+                                <th class="p-3 border-b text-left">Descrição / Lote</th>
+                                <th class="p-3 border-b text-center">UND</th>
+                                <th class="p-3 border-b text-center">Qtd</th>
+                                <th class="p-3 border-b text-center bg-blue-50">Marca</th>
+                                <th class="p-3 border-b text-right">Unitário</th>
+                                <th class="p-3 border-b text-right">Total</th>
+                                <th class="p-3 border-b text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="edit-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 3: VISUALIZAR -->
+        <div id="tab-view" class="tab-content hidden">
+            <div id="carta-oficial" class="modelo-container shadow-2xl">
+                <div class="conteudo-proposta">
+                    <div id="view-header-titulo" class="header-proposta">CARTA DE APRESENTAÇÃO DE PROPOSTA DE PREÇO</div>
+
+                    <div class="destinatario">
+                        <p>AO</p>
+                        <p>SETOR DE LICITAÇÃO</p>
+                        <p id="view-orgao"></p>
+                        <p>REFERENTE: <span id="view-referencia"></span></p>
+                        <p>PROCESSO ADMINISTRATIVO: <span id="view-processo"></span></p>
+                    </div>
+
+                    <div class="texto-introducao">
+                        Senhor Pregoeiro e Equipe de Apoio, <br><br>
+                        Submetemos à apreciação de Vossas Senhorias a nossa proposta relativa à contratação em epígrafe, declarando que o fornecimento será executado rigorosamente de acordo com as especificações e condições constantes do Edital e seus anexos.
+                    </div>
+
+                    <div class="dados-proponente">
+                        <span class="font-bold">1. PROPONENTE:</span><br>
+                        <strong>RAZÃO SOCIAL:</strong> <span id="view-razao"></span><br>
+                        <strong>CNPJ:</strong> <span id="view-cnpj"></span><br>
+                        <strong>INSCRIÇÃO ESTADUAL:</strong> <span id="view-ie"></span><br>
+                        <strong id="view-simples-label"></strong><br>
+                        <strong>ENDEREÇO:</strong> <span id="view-endereco"></span><br>
+                        <strong>E-MAIL:</strong> <span id="view-email"></span>
+                    </div>
+
+                    <div class="objeto-header">OBJETO DA PROPOSTA:</div>
+                    <div class="objeto-header" style="background: white; font-weight: normal; font-size: 8.5px; margin-top: -1px; text-align: justify; padding: 8px;" id="view-objeto"></div>
+
+                    <div class="objeto-header" style="margin-top: 8px;">TABELA DE PROPOSTA DE PREÇOS</div>
+
+                    <table class="tabela-modelo">
+                        <thead>
+                            <tr id="view-thead-row">
+                                <th width="6%" id="th-item">ITEM</th>
+                                <th width="38%" id="th-desc">DESCRIÇÃO / ESPECIFICAÇÃO</th>
+                                <th width="8%" id="th-und">UND</th>
+                                <th width="8%" id="th-qtd">QTD</th>
+                                <th width="12%" id="th-marca">MARCA</th>
+                                <th width="14%" id="th-unit">UNITÁRIO</th>
+                                <th width="14%" id="th-total">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="view-tabela-corpo"></tbody>
+                    </table>
+
+                    <div class="footer-valor">
+                        <span>VALOR TOTAL ESTIMADO DA PROPOSTA</span>
+                        <span id="view-total">R$ 0,00</span>
+                    </div>
+
+                    <div class="extenso" id="view-extenso"></div>
+
+                    <!-- BLOCO FINAL AGRUPADO PARA NÃO QUEBRAR ENTRE PÁGINAS -->
+                    <div class="bloco-final-assinatura">
+                        <div class="info-item"><strong>1. PRAZO DE VALIDADE DA PROPOSTA:</strong> <span id="view-val-prazo"></span></div>
+                        <div class="info-item"><strong>2. PRAZO DE EXECUÇÃO DO OBJETO:</strong> <span id="view-exe-prazo"></span></div>
+                        <div class="info-item"><strong>3. PRAZO DE SUBSTITUIÇÃO/REPARO:</strong> <span id="view-rep-prazo">Até 05 (cinco) dias da comunicação escrita.</span></div>
+                        <div class="info-item"><strong>4. CONDIÇÕES DE PAGAMENTO:</strong> <span id="view-pag-condicao">Conforme Edital.</span></div>
+
+                        <span class="secao-titulo">5. DADOS BANCÁRIOS:</span>
+                        <div class="info-item">BANCO: <span id="view-banco"></span> | AG: <span id="view-ag"></span> | C/C: <span id="view-cc"></span></div>
+
+                        <span class="secao-titulo">7. REPRESENTANTE LEGAL:</span>
+                        <div class="info-item"><strong>NOME:</strong> <span id="view-rep-nome"></span></div>
+                        <div class="info-item">
+                            <strong>NACIONALIDADE:</strong> <span id="view-rep-nacionalidade"></span> | 
+                            <strong>ESTADO CIVIL:</strong> <span id="view-rep-civil"></span>
+                        </div>
+                        <div class="info-item"><strong>PROFISSÃO:</strong> <span id="view-rep-profissao"></span></div>
+                        <div class="info-item">
+                            <strong>CPF:</strong> <span id="view-rep-cpf"></span> | 
+                            <strong>RG:</strong> <span id="view-rep-rg"></span>
+                        </div>
+                        <div class="info-item"><strong>ENDEREÇO:</strong> <span id="view-rep-end"></span></div>
+
+                        <div class="assinatura-footer">
+                            <div class="assinatura-linha">
+                                <span id="view-sign-nome"></span>
+                            </div>
+                            <div style="font-size: 9px; margin-top: 3px;">ASSINATURA DO REPRESENTANTE LEGAL</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.itens = [];
+
+        function openModal() { document.getElementById('modal-confirm').style.display = 'flex'; }
+        function closeModal() { document.getElementById('modal-confirm').style.display = 'none'; }
+
+        function toggleTituloPersonalizado() {
+            const select = document.getElementById('select-tipo-titulo');
+            const customContainer = document.getElementById('container-titulo-custom');
+            if(select.value === 'PERSONALIZADO') customContainer.classList.remove('hidden');
+            else customContainer.classList.add('hidden');
+            saveAllData();
+        }
+
+        function clearTable() {
+            window.itens = [];
+            renderEditTable();
+            saveAllData();
+            closeModal();
+            document.getElementById('raw-table-data').value = "";
+        }
+
+        function changeTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.replace('bg-blue-600', 'bg-slate-800'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            document.getElementById('btn-' + tabId).classList.replace('bg-slate-800', 'bg-blue-600');
+            if(tabId === 'view') updateView();
+        }
+
+        function saveAllData() {
+            const data = {};
+            document.querySelectorAll('.auto-save, #select-tipo-titulo').forEach(input => {
+                data[input.id] = input.type === 'checkbox' ? input.checked : input.value;
+            });
+            localStorage.setItem('proposta_cache_lotes_v3', JSON.stringify(data));
+            localStorage.setItem('proposta_itens_lotes_v3', JSON.stringify(window.itens));
+            
+            const ind = document.getElementById('save-indicator');
+            ind.style.opacity = '1';
+            setTimeout(() => ind.style.opacity = '0', 1000);
+            
+            const cacheImg = localStorage.getItem('timbrado_cache');
+            if(cacheImg) applyTimbradoStyles(cacheImg);
+        }
+
+        function loadAllData() {
+            const savedData = localStorage.getItem('proposta_cache_lotes_v3');
+            if(savedData) {
+                const data = JSON.parse(savedData);
+                Object.keys(data).forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) {
+                        if(el.type === 'checkbox') el.checked = data[id];
+                        else el.value = data[id];
+                    }
+                });
+            }
+            const savedItens = localStorage.getItem('proposta_itens_lotes_v3');
+            if(savedItens) {
+                window.itens = JSON.parse(savedItens);
+                renderEditTable();
+            }
+            const cacheImg = localStorage.getItem('timbrado_cache');
+            if(cacheImg) applyTimbradoStyles(cacheImg);
+            toggleTituloPersonalizado();
+        }
+
+        document.querySelectorAll('.auto-save, #select-tipo-titulo').forEach(input => {
+            input.addEventListener('input', saveAllData);
+        });
+
+        function processTable() {
+            const raw = document.getElementById('raw-table-data').value;
+            if(!raw.trim()) return;
+            const lines = raw.split('\n');
+            lines.forEach(line => {
+                if(!line.trim()) return;
+                const cols = line.split('\t').map(c => c.trim());
+                if (line.toUpperCase().includes("ITEM") && (line.toUpperCase().includes("ESPECIFICAÇÃO") || line.toUpperCase().includes("UNIT"))) return;
+                const isLote = line.toUpperCase().includes("LOTE") || (cols.length < 4 && isNaN(parseInt(cols[0])));
+                if (isLote) {
+                    window.itens.push({ isLote: true, desc: line, visible: true });
+                } else {
+                    const totalRaw = cols[cols.length-1] || "0";
+                    const unitRaw = cols[cols.length-2] || "0";
+                    const marca = cols.length >= 6 ? cols[cols.length-3] : "N/A";
+                    const qtdRaw = cols.length >= 6 ? cols[cols.length-4] : cols[cols.length-3];
+                    const und = cols.length >= 6 ? cols[cols.length-5] : cols[cols.length-4];
+                    const qtd = parseFloat(qtdRaw.replace(/\./g, '').replace(',', '.')) || 0;
+                    const unit = parseFloat(unitRaw.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+                    const total = parseFloat(totalRaw.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || (qtd * unit);
+                    let desc = cols[1];
+                    if(cols.length > 6) desc = cols.slice(1, cols.length-5).join(" ");
+                    window.itens.push({ isLote: false, id: cols[0], desc: desc, und: und, qtd: qtd, marca: marca, unit: unit, total: total, visible: true });
+                }
+            });
+            renderEditTable();
+            saveAllData();
+            document.getElementById('raw-table-data').value = "";
+        }
+
+        function renderEditTable() {
+            const tbody = document.getElementById('edit-table-body');
+            tbody.innerHTML = '';
+            window.itens.forEach((i, idx) => {
+                const ocultoClass = i.visible === false ? 'item-oculto' : '';
+                const eyeIcon = i.visible === false ? '👁️‍🗨️' : '👁️';
+                if(i.isLote) {
+                    tbody.innerHTML += `<tr class="bg-blue-50 ${ocultoClass}"><td colspan="7" class="p-3"><input class="w-full bg-transparent border-none font-bold text-blue-900" value="${i.desc}" onchange="updateItemData(${idx},'desc',this.value)"></td><td class="p-3 text-center flex gap-2 justify-center"><button onclick="toggleVisibility(${idx})">${eyeIcon}</button><button onclick="removeItem(${idx})" class="text-red-500">✕</button></td></tr>`;
+                } else {
+                    tbody.innerHTML += `<tr class="border-b hover:bg-gray-50 ${ocultoClass}"><td class="p-3"><input class="edit-input w-12" value="${i.id}" onchange="updateItemData(${idx},'id',this.value)"></td><td class="p-3"><input class="edit-input font-bold" value="${i.desc}" onchange="updateItemData(${idx},'desc',this.value)"></td><td class="p-3"><input class="edit-input w-16 text-center" value="${i.und}" onchange="updateItemData(${idx},'und',this.value)"></td><td class="p-3"><input class="edit-input w-20 text-center" type="number" value="${i.qtd}" onchange="updateItemCalc(${idx},'qtd',this.value)"></td><td class="p-3 bg-blue-50"><input class="edit-input text-center font-bold text-blue-800" value="${i.marca || ''}" onchange="updateItemData(${idx},'marca',this.value)"></td><td class="p-3"><input class="edit-input text-right w-24" value="${(i.unit || 0).toFixed(2).replace('.',',')}" onchange="updateItemCalc(${idx},'unit',this.value)"></td><td class="p-3 font-bold text-right">${(i.total || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td><td class="p-3 text-center flex gap-3 justify-center"><button onclick="toggleVisibility(${idx})">${eyeIcon}</button><button onclick="removeItem(${idx})" class="text-red-500">✕</button></td></tr>`;
+                }
+            });
+        }
+
+        function toggleVisibility(idx) { window.itens[idx].visible = !window.itens[idx].visible; renderEditTable(); saveAllData(); }
+        function updateItemData(idx, field, val) { window.itens[idx][field] = val; saveAllData(); }
+        function updateItemCalc(idx, field, val) {
+            let n = parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+            if(field === 'unit') { window.itens[idx].unit = n; window.itens[idx].total = window.itens[idx].qtd * n; }
+            else if(field === 'qtd') { window.itens[idx].qtd = n; window.itens[idx].total = n * window.itens[idx].unit; }
+            renderEditTable(); saveAllData();
+        }
+        function removeItem(idx) { window.itens.splice(idx, 1); renderEditTable(); saveAllData(); }
+
+        function updateView() {
+            const getVal = (id) => document.getElementById(id).value;
+            const isSimples = document.getElementById('edit-simples').checked;
+            const selectTipo = document.getElementById('select-tipo-titulo').value;
+            const tituloFinal = (selectTipo === 'PERSONALIZADO') ? document.getElementById('edit-titulo-custom').value : selectTipo;
+            document.getElementById('view-header-titulo').innerText = tituloFinal || "DOCUMENTO";
+
+            const showItem = document.getElementById('show-col-item').checked;
+            const showUnd = document.getElementById('show-col-und').checked;
+            const showQtd = document.getElementById('show-col-qtd').checked;
+            const showMarca = document.getElementById('show-col-marca').checked;
+            const showUnit = document.getElementById('show-col-unit').checked;
+            const showTotal = document.getElementById('show-col-total').checked;
+
+            document.getElementById('view-orgao').innerText = getVal('edit-orgao');
+            document.getElementById('view-referencia').innerText = getVal('edit-referencia');
+            document.getElementById('view-processo').innerText = getVal('edit-processo');
+            document.getElementById('view-razao').innerText = getVal('edit-razao');
+            document.getElementById('view-cnpj').innerText = getVal('edit-cnpj');
+            document.getElementById('view-ie').innerText = getVal('edit-ie');
+            document.getElementById('view-endereco').innerText = getVal('edit-endereco');
+            document.getElementById('view-email').innerText = getVal('edit-email');
+            document.getElementById('view-objeto').innerText = getVal('edit-objeto');
+            document.getElementById('view-simples-label').innerText = `OPTANTE PELO SIMPLES NACIONAL (${isSimples ? 'X' : ' '}) SIM (${isSimples ? ' ' : 'X'}) NÃO`;
+            
+            const fields = ['val-prazo', 'exe-prazo', 'banco', 'ag', 'cc', 'rep-nome', 'rep-cpf', 'rep-rg', 'rep-end', 'rep-nacionalidade', 'rep-civil', 'rep-profissao'];
+            fields.forEach(key => {
+                const el = document.getElementById('view-'+key);
+                if(el) el.innerText = getVal('edit-'+key);
+            });
+            document.getElementById('view-sign-nome').innerText = getVal('edit-razao');
+
+            document.getElementById('th-item').className = showItem ? '' : 'hidden-col';
+            document.getElementById('th-und').className = showUnd ? '' : 'hidden-col';
+            document.getElementById('th-qtd').className = showQtd ? '' : 'hidden-col';
+            document.getElementById('th-marca').className = showMarca ? '' : 'hidden-col';
+            document.getElementById('th-unit').className = showUnit ? '' : 'hidden-col';
+            document.getElementById('th-total').className = showTotal ? '' : 'hidden-col';
+
+            const tbody = document.getElementById('view-tabela-corpo');
+            tbody.innerHTML = '';
+            let totalGeral = 0;
+            let visibleCols = 1;
+            if(showItem) visibleCols++; if(showUnd) visibleCols++; if(showQtd) visibleCols++; if(showMarca) visibleCols++; if(showUnit) visibleCols++; if(showTotal) visibleCols++;
+
+            window.itens.forEach(i => {
+                if(i.visible !== false) {
+                    if(i.isLote) {
+                        tbody.innerHTML += `<tr><td colspan="${visibleCols}" class="linha-lote-view">${i.desc}</td></tr>`;
+                    } else {
+                        totalGeral += i.total;
+                        let rowHtml = '<tr>';
+                        if(showItem) rowHtml += `<td class="text-center">${i.id}</td>`;
+                        rowHtml += `<td class="font-bold">${i.desc}</td>`;
+                        if(showUnd) rowHtml += `<td class="text-center">${i.und}</td>`;
+                        if(showQtd) rowHtml += `<td class="text-center">${i.qtd}</td>`;
+                        if(showMarca) rowHtml += `<td class="text-center italic font-bold text-[7.5px]">${i.marca || '-'}</td>`;
+                        if(showUnit) rowHtml += `<td class="text-right">${(i.unit || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>`;
+                        if(showTotal) rowHtml += `<td class="text-right font-bold">${(i.total || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>`;
+                        rowHtml += '</tr>';
+                        tbody.innerHTML += rowHtml;
+                    }
+                }
+            });
+
+            document.getElementById('view-total').innerText = totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            try {
+                const totalFormatado = totalGeral.toFixed(2).replace('.', ',');
+                const valorExtenso = extenso(totalFormatado, { mode: 'currency' });
+                document.getElementById('view-extenso').innerText = `Valor Global: ${totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${valorExtenso.toUpperCase()})`;
+            } catch (e) {}
+        }
+
+        function applyTimbradoStyles(base64) {
+            const opacity = document.getElementById('timbrado-opacity').value / 100;
+            const scale = document.getElementById('timbrado-scale').value;
+            const container = document.getElementById('carta-oficial');
+            container.style.backgroundImage = `url(${base64})`;
+            container.style.backgroundBlendMode = 'overlay';
+            container.style.backgroundColor = `rgba(255, 255, 255, ${1 - opacity})`;
+            container.style.backgroundSize = `${scale}% auto`;
+        }
+
+        function generatePDF() {
+            updateView();
+            const element = document.getElementById('carta-oficial');
+            const opt = {
+                margin: 0,
+                filename: `${document.getElementById('view-header-titulo').innerText}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                // ADICIONADO PARA RESPEITAR O PAGE BREAK INSIDE DO CSS
+                pagebreak: { mode: ['css', 'legacy'] }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        document.getElementById('input-timbrado').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => { localStorage.setItem('timbrado_cache', reader.result); applyTimbradoStyles(reader.result); };
+            if(file) reader.readAsDataURL(file);
+        });
+
+        window.onload = loadAllData;
+    </script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Laudos - Rodsys</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Biblioteca para geração de PDF via Download Direto -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; margin: 0 !important; padding: 0 !important; }
+            .flex-1 { background: white !important; padding: 0 !important; overflow: visible !important; }
+            .page { 
+                margin: 0 !important; 
+                border: none !important; 
+                box-shadow: none !important; 
+                width: 210mm;
+                height: 297mm;
+                page-break-after: always;
+            }
+        }
+        body { background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* Classe específica para o PDF manter proporções */
+        .page {
+            background-color: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm;
+            margin: 10px auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            position: relative;
+            font-size: 10px;
+            color: #333;
+            background-size: 100% 100%; 
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-content {
+            position: relative;
+            z-index: 2;
+            height: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-logo { border-bottom: 2px solid #1a365d; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+        th { background-color: #f8fafc; font-weight: bold; text-transform: uppercase; font-size: 9px; }
+        .section-title { 
+            background-color: #1a365d; 
+            color: white; 
+            padding: 3px 8px; 
+            font-weight: bold; 
+            margin-top: 10px;
+            text-transform: uppercase;
+            font-size: 10px;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            border: 1px solid #ddd;
+            padding: 6px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            color: #1a202c !important;
+            background-color: #ffffff !important;
+            font-size: 11px;
+        }
+
+        .timbrado-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            pointer-events: none;
+        }
+
+        .rodsys-logo-placeholder {
+            width: 36px;
+            height: 36px;
+            background: #3b82f6;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 18px;
+        }
+        
+        /* Estilo para o loader de PDF */
+        #pdf-loader {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen">
+
+    <div id="pdf-loader">Gerando PDF, por favor aguarde...</div>
+
+    <!-- PAINEL DE CONTROLE (ESQUERDA) -->
+    <div class="no-print w-full md:w-1/3 bg-gray-900 text-white p-5 overflow-y-auto h-screen sticky top-0 shadow-2xl text-xs">
+        
+        <!-- Branding Rodsys -->
+        <div class="flex items-center gap-3 mb-6 border-b border-gray-700 pb-4">
+            <div class="rodsys-logo-placeholder">R</div>
+            <div>
+                <h1 class="text-xl font-black tracking-tighter text-blue-400">RODSYS</h1>
+                <p class="text-[9px] uppercase tracking-widest text-gray-500">Sistemas de Gestão</p>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <!-- Ajustes de Timbrado -->
+            <div class="bg-blue-900/30 border border-blue-800 p-4 rounded-lg shadow-inner">
+                <label class="block font-bold mb-2 uppercase text-[10px] text-blue-300">Papel Timbrado (Fundo)</label>
+                <input type="file" id="in_timbrado_file" accept="image/*" onchange="handleTimbrado(event)" class="text-white text-xs mb-3 block w-full">
+                
+                <div class="space-y-2">
+                    <div>
+                        <label class="flex justify-between text-[9px] mb-1 text-gray-400 uppercase">Margem Topo: <span id="val_top" class="text-blue-400 font-bold">15mm</span></label>
+                        <input type="range" id="margin_top" min="5" max="150" value="15" oninput="applyAjustes()" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 0. Dados do Laboratório -->
+            <details class="group">
+                <summary class="cursor-pointer font-bold bg-gray-800 border border-gray-700 p-2 rounded">0. Dados do Laboratório / Emitente</summary>
+                <div class="p-2 space-y-2 bg-gray-800/40 rounded-b border-x border-b border-gray-700">
+                    <label class="text-[9px] text-blue-300 uppercase">Nome no Cabeçalho</label>
+                    <input type="text" id="in_lab_nome" value="CERNITAS" oninput="updateView()">
+                    <label class="text-[9px] text-blue-300 uppercase">Razão Social (Rodapé)</label>
+                    <input type="text" id="in_lab_footer" value="Laboratório de Bioprodutos Ltda. - CNPJ 12.655.020/0001-80" oninput="updateView()">
+                    <label class="text-[9px] text-blue-300 uppercase">Endereço/Contato (Rodapé)</label>
+                    <textarea id="in_lab_contato" oninput="updateView()" rows="2">Av. Alcino Billo, 17 - Cohab Anil III - CEP 65.050-050 - São Luís - MA</textarea>
+                </div>
+            </details>
+
+            <!-- 1. Identificação Cliente -->
+            <details class="group">
+                <summary class="cursor-pointer font-bold bg-gray-800 border border-gray-700 p-2 rounded">1. Identificação do Cliente</summary>
+                <div class="p-2 space-y-2 bg-gray-800/40 rounded-b border-x border-b border-gray-700">
+                    <input type="text" id="in_cliente" placeholder="Nome do Cliente" value="IMPERIO SERVICOS ESPECIALIZADOS LTDA" oninput="updateView()">
+                    <input type="text" id="in_cliente_cnpj" placeholder="CNPJ/CPF" value="22.260.501/0001-40" oninput="updateView()">
+                    <input type="text" id="in_cliente_end" placeholder="Endereço" value="Rua Jari, 13 - Turu - São Luís/MA" oninput="updateView()">
+                </div>
+            </details>
+
+            <!-- 2. Dados da Coleta -->
+            <details class="group">
+                <summary class="cursor-pointer font-bold bg-gray-800 border border-gray-700 p-2 rounded">2. Dados da Coleta / Amostragem</summary>
+                <div class="p-2 space-y-2 bg-gray-800/40 rounded-b border-x border-b border-gray-700">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[9px] text-blue-300 uppercase">Data Coleta</label>
+                            <input type="text" id="in_data_coleta" value="25/08/2025" oninput="updateView()">
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-blue-300 uppercase">Hora Coleta</label>
+                            <input type="text" id="in_hora_coleta" value="09:14" oninput="updateView()">
+                        </div>
+                    </div>
+                    <label class="text-[9px] text-blue-300 uppercase">Tipo de Amostra</label>
+                    <input type="text" id="in_tipo_amostra" value="Ar Interior em ambiente climatizado" oninput="updateView()">
+                    <label class="text-[9px] text-blue-300 uppercase">Endereço da Coleta</label>
+                    <textarea id="in_end_coleta" oninput="updateView()" rows="2">Escritório de São Luís da Aeronáutica, - São Cistóvão - São Luís / MA</textarea>
+                    <label class="text-[9px] text-blue-300 uppercase">Responsável Amostragem</label>
+                    <input type="text" id="in_resp_amostra" value="Lab. Cernitas" oninput="updateView()">
+                </div>
+            </details>
+
+            <!-- 3. Resultados -->
+            <details class="group">
+                <summary class="cursor-pointer font-bold bg-gray-800 border border-gray-700 p-2 rounded">3. Resultados e Ensaio</summary>
+                <div class="p-2 space-y-2 bg-gray-800/40 rounded-b border-x border-b border-gray-700">
+                    <input type="text" id="in_relatorio" placeholder="Nº Relatório" value="44766/2025 Único" oninput="updateView()">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="in_res_bac" placeholder="Bactérias" value="48.00" oninput="updateView()">
+                        <input type="text" id="in_res_fun" placeholder="Fungos" value="17.00" oninput="updateView()">
+                    </div>
+                </div>
+            </details>
+
+            <!-- 4. Assinatura -->
+            <details class="group">
+                <summary class="cursor-pointer font-bold bg-gray-800 border border-gray-700 p-2 rounded">4. Assinatura e Finalização</summary>
+                <div class="p-2 space-y-2 bg-gray-800/40 rounded-b border-x border-b border-gray-700">
+                    <label class="text-[9px] text-blue-300 uppercase">Nome do Responsável</label>
+                    <input type="text" id="in_resp_tecnico" value="Andréa Machado Ferreira" oninput="updateView()">
+                    <label class="text-[9px] text-blue-300 uppercase">Cargo / Registro Profissional</label>
+                    <input type="text" id="in_resp_registro" value="Responsável Técnica CRQ-MA 11200548" oninput="updateView()">
+                    
+                    <label class="block font-bold mt-2 uppercase text-[10px] text-blue-300">Imagem da Assinatura (Opcional)</label>
+                    <input type="file" id="in_sig_file" accept="image/*" onchange="handleSignature(event)" class="text-white text-xs block w-full">
+                    <button onclick="removeSignature()" class="text-[8px] text-red-400 uppercase hover:underline">Remover Imagem Assinatura</button>
+                </div>
+            </details>
+
+            <!-- BOTÃO SALVAR PDF -->
+            <button onclick="saveAsPDF()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg transition flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                BAIXAR LAUDO (PDF)
+            </button>
+        </div>
+    </div>
+
+    <!-- VISUALIZAÇÃO DO LAUDO (DIREITA) -->
+    <div class="flex-1 overflow-y-auto p-4 bg-gray-500 flex justify-center">
+        <div class="page" id="laudo-page">
+            <div id="timbrado-layer" class="timbrado-overlay"></div>
+            
+            <div class="page-content">
+                <!-- Cabeçalho -->
+                <div class="flex justify-between items-center header-logo pb-1 mb-2">
+                    <div id="out_lab_nome" class="text-xl font-black text-blue-900 italic uppercase">CERNITAS</div>
+                    <div class="text-right">
+                        <div class="font-bold text-sm uppercase">Relatório de Ensaio</div>
+                        <div id="out_relatorio" class="text-xs font-bold text-blue-700">44766/2025 Único</div>
+                    </div>
+                </div>
+
+                <!-- Seção 1: Cliente -->
+                <div class="section-title">Identificação Conta</div>
+                <div class="grid grid-cols-1 gap-1 py-1 text-[9px]">
+                    <p><strong>Nome:</strong> <span id="out_cliente">IMPERIO SERVICOS ESPECIALIZADOS LTDA</span></p>
+                    <p><strong>CNPJ/CPF:</strong> <span id="out_cliente_cnpj">22.260.501/0001-40</span></p>
+                    <p><strong>Endereço:</strong> <span id="out_cliente_end">Rua Jari, 13 - Turu - São Luís/MA</span></p>
+                </div>
+
+                <!-- Seção 2: Coleta -->
+                <div class="section-title">Dados da Amostragem / Coleta</div>
+                <div class="grid grid-cols-2 gap-y-1 gap-x-4 py-1 text-[9px]">
+                    <p><strong>Data Coleta:</strong> <span id="out_data_coleta">25/08/2025</span> às <span id="out_hora_coleta">09:14</span></p>
+                    <p><strong>Tipo de Amostra:</strong> <span id="out_tipo_amostra">Ar Interior em ambiente climatizado</span></p>
+                    <p class="col-span-2"><strong>Endereço Coleta:</strong> <span id="out_end_coleta">Escritório de São Luís da Aeronáutica, - São Cistóvão - São Luís / MA</span></p>
+                    <p><strong>Responsável Amostragem:</strong> <span id="out_resp_amostra">Lab. Cernitas</span></p>
+                </div>
+
+                <!-- Seção 3: Resultados -->
+                <div class="section-title">Resultados Analíticos</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ensaio Microbiológico</th>
+                            <th>Resultado</th>
+                            <th>Unidade</th>
+                            <th>VMP*</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Contagem bacteriológica total</td>
+                            <td class="font-bold text-center"><span id="out_res_bac">48.00</span></td>
+                            <td class="text-center">UFC/m³</td>
+                            <td class="text-center">500</td>
+                        </tr>
+                        <tr>
+                            <td>Contagem fúngica total</td>
+                            <td class="font-bold text-center"><span id="out_res_fun">17.00</span></td>
+                            <td class="text-center">UFC/m³</td>
+                            <td class="text-center">750</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="text-[7px] text-gray-500 italic">*VMP: Valor Máximo Permitido conforme RE nº 09/2003 ANVISA.</p>
+
+                <div class="section-title">Interpretação e Parecer</div>
+                <div class="p-2 border border-gray-300 mt-1 italic text-[9px] bg-gray-50">
+                    A presente amostra analisada <strong class="text-green-700 uppercase">Atende</strong> aos padrões estabelecidos para a qualidade do ar em ambientes climatizados.
+                </div>
+
+                <!-- Rodapé / Assinatura -->
+                <div class="mt-auto">
+                    <div class="flex flex-col items-center pb-4">
+                        <div id="out_sig_img" class="h-14 mb-1 hidden"></div>
+                        <div class="text-center border-t border-gray-400 pt-1 w-64">
+                            <p class="font-bold uppercase text-[9px]" id="out_resp_tecnico">Andréa Machado Ferreira</p>
+                            <p class="text-[8px]" id="out_resp_registro">Responsável Técnica CRQ-MA 11200548</p>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-gray-200 pt-2 flex justify-between items-end text-[7px] text-gray-400 uppercase">
+                        <div>
+                            <strong id="out_lab_footer">Laboratório de Bioprodutos Ltda. - CNPJ 12.655.020/0001-80</strong><br>
+                            <span id="out_lab_contato">Av. Alcino Billo, 17-Cohab Anil III - CEP 65.050-050-São Luís - MA</span>
+                        </div>
+                        <div class="text-right">
+                            Emitido em: <span id="current-date"></span><br>
+                            Página 1/1
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Função para gerar e baixar PDF automático usando html2pdf
+        function saveAsPDF() {
+            const element = document.getElementById('laudo-page');
+            const loader = document.getElementById('pdf-loader');
+            
+            // Dados para o nome do arquivo
+            const relatorioNum = document.getElementById('in_relatorio').value.replace(/[/\\?%*:|"<>]/g, '-');
+            const clienteNome = document.getElementById('in_cliente').value.substring(0, 20).trim();
+            const fileName = `Laudo_${relatorioNum}_${clienteNome}.pdf`;
+
+            loader.style.display = 'flex';
+
+            const opt = {
+                margin:       0,
+                filename:     fileName,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Gera e baixa o PDF
+            html2pdf().set(opt).from(element).save().then(() => {
+                loader.style.display = 'none';
+            }).catch(err => {
+                console.error(err);
+                loader.style.display = 'none';
+                alert('Erro ao gerar PDF. Tente usar o botão de imprimir do navegador.');
+            });
+        }
+
+        function handleTimbrado(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                document.getElementById('timbrado-layer').style.backgroundImage = `url('${reader.result}')`;
+            };
+            if(event.target.files[0]) reader.readAsDataURL(event.target.files[0]);
+        }
+
+        function handleSignature(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const out = document.getElementById('out_sig_img');
+                out.innerHTML = `<img src="${reader.result}" class="h-full object-contain mx-auto">`;
+                out.classList.remove('hidden');
+            };
+            if(event.target.files[0]) reader.readAsDataURL(event.target.files[0]);
+        }
+
+        function removeSignature() {
+            const out = document.getElementById('out_sig_img');
+            out.innerHTML = '';
+            out.classList.add('hidden');
+            document.getElementById('in_sig_file').value = '';
+        }
+
+        function applyAjustes() {
+            const top = document.getElementById('margin_top').value;
+            document.getElementById('val_top').innerText = top + 'mm';
+            document.getElementById('laudo-page').style.paddingTop = top + 'mm';
+        }
+
+        function updateView() {
+            const fields = [
+                'lab_nome', 'lab_footer', 'lab_contato',
+                'cliente', 'cliente_cnpj', 'cliente_end', 
+                'data_coleta', 'hora_coleta', 'tipo_amostra', 'end_coleta', 'resp_amostra',
+                'relatorio', 'res_bac', 'res_fun',
+                'resp_tecnico', 'resp_registro'
+            ];
+            fields.forEach(f => {
+                const el = document.getElementById('in_' + f);
+                const out = document.getElementById('out_' + f);
+                if (el && out) out.innerText = el.value;
+            });
+        }
+
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR');
+        window.onload = updateView;
+    </script>
+</body>
+</html>
